@@ -1,0 +1,12 @@
+[Unit]
+Description=WiFi Manager
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /sciezka/app.py
+WorkingDirectory=/sciezka/
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target

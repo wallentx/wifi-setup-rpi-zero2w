@@ -4,22 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WiFi Setup</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>Connect to a Wi-Fi Network</h1>
-    <form action="/" method="POST">
-        <label for="network">Select Network:</label>
-        <select id="network" name="network">
-            {% for network in networks %}
-                <option value="{{ network.ssid }}">{{ network.ssid }}</option>
-            {% endfor %}
-        </select><br><br>
-
-        <label for="password">Enter Password:</label>
-        <input type="password" id="password" name="password" required><br><br>
-
-        <input type="submit" value="Connect">
-    </form>
+    <div class="container">
+        <h1>Select WiFi Network</h1>
+        <form method="POST">
+            <label for="network">Available Networks:</label>
+            <select name="network" id="network">
+                {% for net in networks %}
+                <option value="{{ net }}">{{ net }}</option>
+                {% endfor %}
+            </select>
+            <input type="password" name="password" placeholder="WiFi Password" required>
+            <button type="submit">Connect</button>
+        </form>
+    </div>
 </body>
 </html>

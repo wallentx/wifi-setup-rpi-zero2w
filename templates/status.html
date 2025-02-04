@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Status</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>WiFi Status</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="status-container">
-        <h1>Status: {{ status }}</h1>
-        <p>If you want to connect to a different Wi-Fi, please reconnect or check your network settings.</p>
+    <div class="container">
+        <h1>{{ status }}</h1>
+        <a href="/">Go Back</a>
     </div>
 </body>
 </html>
