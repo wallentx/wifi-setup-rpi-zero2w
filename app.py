@@ -16,10 +16,7 @@ def start_ap():
     subprocess.run(["nmcli", "con", "add", "con-name", "hotspot", "ifname", "wlan0", "type", "wifi", "ssid", AP_NAME])
     subprocess.run(["nmcli", "con", "modify", "hotspot", "wifi-sec.key-mgmt", "wpa-psk"])
     subprocess.run(["nmcli", "con", "modify", "hotspot", "wifi-sec.psk", AP_PASSWORD])
-    subprocess.run(["nmcli", "con", "modify", "hotspot", "802-11-wireless.mode", "ap"])
-    subprocess.run(["nmcli", "con", "modify", "hotspot", "802-11-wireless.band", "bg"])
-    subprocess.run(["nmcli", "con", "modify", "hotspot", "ipv4.method", "shared"])
-    subprocess.run(["nmcli", "con", "up", "hotspot"])
+    subprocess.run(["nmcli", "con", "modify", "hotspot", "802-11-wireless.mode", "ap", "802-11-wireless.band", "bg", "ipv4.method shared"])
 
 def stop_ap():
     subprocess.run(["nmcli", "con", "down", "hotspot"], stderr=subprocess.DEVNULL)
