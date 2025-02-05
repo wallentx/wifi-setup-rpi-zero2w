@@ -12,11 +12,41 @@ def is_connected():
     eth_connected = subprocess.run(['ip', 'link', 'show', 'eth0'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return wifi_connected.returncode == 0 or eth_connected.returncode == 0
 
+# def start_ap():
+#     subprocess.run(["nmcli", "con", "add", "con-name", "hotspot", "ifname", "wlan0", "type", "wifi", "ssid", AP_NAME])
+#     subprocess.run(["nmcli", "con", "modify", "hotspot", "wifi-sec.key-mgmt", "wpa-psk"])
+#     subprocess.run(["nmcli", "con", "modify", "hotspot", "wifi-sec.psk", AP_PASSWORD])
+#     subprocess.run(["nmcli", "con", "modify", "hotspot", "802-11-wireless.mode", "ap", "802-11-wireless.band", "bg", "ipv4.method", "shared"])
+
 def start_ap():
-    subprocess.run(["nmcli", "con", "add", "con-name", "hotspot", "ifname", "wlan0", "type", "wifi", "ssid", AP_NAME])
-    subprocess.run(["nmcli", "con", "modify", "hotspot", "wifi-sec.key-mgmt", "wpa-psk"])
-    subprocess.run(["nmcli", "con", "modify", "hotspot", "wifi-sec.psk", AP_PASSWORD])
-    subprocess.run(["nmcli", "con", "modify", "hotspot", "802-11-wireless.mode", "ap", "802-11-wireless.band", "bg", "ipv4.method shared"])
+    out = subprocess.run(
+        ["nmcli", "con", "add", "con-name", "hotspot", "ifname", "wlan0", "type", "wifi", "ssid", AP_NAME], 
+        capture_output=True, text=True
+    )
+    print(out.stdout)
+    print(out.stderr)
+
+    out = subprocess.run(
+        ["nmcli", "con", "modify", "hotspot", "wifi-sec.key-mgmt", "wpa-psk"], 
+        capture_output=True, text=True
+    )
+    print(out.stdout)
+    print(out.stderr)
+
+    out = subprocess.run(
+        ["nmcli", "con", "modify", "hotspot", "wifi-sec.psk", AP_PASSWORD], 
+        capture_output=True, text=True
+    )
+    print(out.stdout)
+    print(out.stderr)
+
+    out = subprocess.run(
+        ["nmcli", "con", "modify", "hotspot", "802-11-wireless.mode", "ap", "802-11-wireless.band", "bg", "ipv4.method", "shared"], 
+        capture_output=True, text=True
+    )
+    print(out.stdout)
+    print(out.stderr)
+
 
 def stop_ap():
     subprocess.run(["nmcli", "con", "down", "hotspot"], stderr=subprocess.DEVNULL)
