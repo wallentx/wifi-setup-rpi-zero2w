@@ -57,7 +57,19 @@ def get_available_networks():
     networks = result.stdout.decode().split("\n")
     return [net for net in networks if net]
 
+def check_and_remove_hotspot():
+    """Check for existing hotspot connections and remove them if found."""
+    result = subprocess.run(["nmcli", "con", "show"], stdout=subprocess.PIPE, text=True)
+    connections = result.stdout.splitlines()
+    
+    for connection in connections:
+        if "hotspot" in connection:
+            subprocess.run(["nmcli", "con", "down", "hotspot"], stderr=subprocess.DEVNULL)
+            subprocess.run(["nmcli", "con", "delete", "hotspot"], stderr=subprocess.DEVNULL)
+            print(f"Removed hotspot connection: {connection}")
+
 def connect_to_network(ssid, password):
+    check_and_remove_hotspot()
     stop_ap()
     subprocess.run(["nmcli", "dev", "wifi", "connect", ssid, "password", password])
 
