@@ -4,7 +4,7 @@ from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
-AP_NAME = "pirate"
+AP_NAME = "piratos"
 AP_PASSWORD = "raspberry"
 
 def is_connected():
