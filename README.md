@@ -20,7 +20,18 @@ sudo apt install python3-pip python3-dev wireless-tools
 
 2. Install Python libraries:
 
-`sudo pip3 install flask wifi`
+`sudo pip3 install flask`
+
+3. Configure environment variables (optional):
+
+The application uses environment variables for the access point name and password. You can customize these by copying the example file:
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+Edit the `.env` file to set your desired AP_NAME and AP_PASSWORD. If not configured, the application will use default values (AP_NAME: "piratos", AP_PASSWORD: "raspberry").
 
 ## Running the Application
 
@@ -51,12 +62,25 @@ WorkingDirectory=/path/to/your/project
 User=pi
 Group=pi
 Restart=always
+# Load environment variables from .env file (optional)
+EnvironmentFile=-/path/to/your/project/.env
 
 [Install]
 WantedBy=multi-user.target
 ```
 
 Make sure to replace /path/to/your/project/ with the actual path to your project directory.
+
+**Note:** If you want to use custom AP_NAME and AP_PASSWORD values, create a `.env` file in your project directory with the following content:
+```
+AP_NAME=your_custom_ap_name
+AP_PASSWORD=your_custom_password
+```
+
+Alternatively, you can use the included `wifi_manager.service` file which is configured for installation in `/opt/wifi_manager/`. To use it:
+- Copy your project files to `/opt/wifi_manager/`
+- If using custom credentials, create `/opt/wifi_manager/.env` with your AP_NAME and AP_PASSWORD
+- Copy `wifi_manager.service` to `/etc/systemd/system/`
 
 3. Enable and start the service:
 ```

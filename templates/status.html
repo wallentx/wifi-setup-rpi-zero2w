@@ -3,13 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Status</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>WiFi Status</title>
+    <link rel="stylesheet" href="/static/style.css">
+    {% if checking %}
+    <script>
+        // Configuration for connection status polling
+        const POLL_INTERVAL_MS = 2000;  // Check every 2 seconds
+        const MAX_POLLS = 30;  // Maximum 30 poll attempts (60 seconds total with 2 second intervals)
+        
+        // Track polling attempts to prevent infinite loops
+        let pollCount = 0;
+        
+        function checkStatus() {
+            // Check if we've exceeded our polling limit (30 attempts total)
+            if (pollCount >= MAX_POLLS) {
+                document.getElementById('status').textContent = 'Connection status check timed out. Please refresh the page.';
+                return;
+            }
+            
+            fetch('/check_status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.in_progress) {
+                        // Still connecting, check again
+                        pollCount++;
+                        setTimeout(checkStatus, POLL_INTERVAL_MS);
+                    } else if (data.connected) {
+                        // Successfully connected
+                        document.getElementById('status').textContent = 'Connected successfully!';
+                    } else {
+                        // Connection failed
+                        let errorMsg = 'Failed to connect to the network.';
+                        if (data.error) {
+                            // Safe from XSS: textContent automatically escapes all content
+                            errorMsg += ' Error: ' + data.error;
+                        }
+                        document.getElementById('status').textContent = errorMsg;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking status:', error);
+                    pollCount++;
+                    // Retry after error if within poll limit
+                    if (pollCount < MAX_POLLS) {
+                        setTimeout(checkStatus, POLL_INTERVAL_MS);
+                    } else {
+                        document.getElementById('status').textContent = 'Connection status check failed. Please refresh the page.';
+                    }
+                });
+        }
+        
+        // Start polling when page loads
+        window.addEventListener('load', function() {
+            setTimeout(checkStatus, POLL_INTERVAL_MS);
+        });
+    </script>
+    {% endif %}
 </head>
 <body>
-    <div class="status-container">
-        <h1>Status: {{ status }}</h1>
-        <p>If you want to connect to a different Wi-Fi, please reconnect or check your network settings.</p>
+    <div class="container">
+        <h1 id="status">{{ status }}</h1>
+        <a href="/">Go Back</a>
     </div>
 </body>
 </html>
