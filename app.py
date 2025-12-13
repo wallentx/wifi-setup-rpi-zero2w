@@ -35,14 +35,17 @@ def is_connected():
 
 
 def log_subprocess_output(result):
-    """Log subprocess output, treating stdout as info and stderr as error."""
+    """Log subprocess output, treating stdout as info and stderr as error only on failure."""
     stdout_stripped = result.stdout.strip() if result.stdout else ""
     stderr_stripped = result.stderr.strip() if result.stderr else ""
     
     if stdout_stripped:
         logger.info(stdout_stripped)
     if stderr_stripped:
-        logger.error(stderr_stripped)
+        if result.returncode != 0:
+            logger.error(stderr_stripped)
+        else:
+            logger.info(stderr_stripped)
 
 
 def start_ap():
