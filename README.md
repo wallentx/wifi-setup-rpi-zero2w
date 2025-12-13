@@ -77,6 +77,11 @@ AP_NAME=your_custom_ap_name
 AP_PASSWORD=your_custom_password
 ```
 
+Alternatively, you can use the included `wifi_manager.service` file which is configured for installation in `/opt/wifi_manager/`. To use it:
+- Copy your project files to `/opt/wifi_manager/`
+- If using custom credentials, create `/opt/wifi_manager/.env` with your AP_NAME and AP_PASSWORD
+- Copy `wifi_manager.service` to `/etc/systemd/system/`
+
 3. Enable and start the service:
 ```
 sudo systemctl daemon-reload
