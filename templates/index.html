@@ -12,8 +12,8 @@
         <form method="POST">
             <label for="network">Available Networks:</label>
             <select name="network" id="network">
-                {% for net in networks %}
-                <option value="{{ net }}">{{ net }}</option>
+                {% for ssid in networks %}
+                <option value="{{ ssid }}">{{ ssid }}</option>
                 {% endfor %}
             </select>
             <label for="password">WiFi Password:</label>
