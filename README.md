@@ -20,7 +20,7 @@ sudo apt install python3-pip python3-dev wireless-tools
 
 2. Install Python libraries:
 
-`sudo pip3 install flask wifi`
+`sudo pip3 install flask`
 
 3. Configure environment variables (optional):
 
