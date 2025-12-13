@@ -109,7 +109,10 @@ def validate_network_input(ssid, password):
         raise ValueError("SSID must be between 1 and 32 characters")
     
     # Password validation (WPA/WPA2: 8-63 characters)
-    if password and (len(password) < 8 or len(password) > 63):
+    # Require password to be provided and meet minimum length
+    if not password:
+        raise ValueError("Password is required")
+    if len(password) < 8 or len(password) > 63:
         raise ValueError("Password must be between 8 and 63 characters")
     
     # Check for null bytes which could be used for injection

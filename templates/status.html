@@ -32,15 +32,13 @@
                         document.getElementById('status').textContent = 'Connected successfully!';
                     } else {
                         // Connection failed
-                        let errorMsg = 'Failed to connect to the network.';
+                        const statusElement = document.getElementById('status');
+                        statusElement.textContent = 'Failed to connect to the network.';
                         if (data.error) {
-                            // Use textContent to prevent XSS
-                            const statusElement = document.getElementById('status');
-                            statusElement.textContent = errorMsg;
-                            const errorText = document.createTextNode(' Error: ' + data.error);
-                            statusElement.appendChild(errorText);
-                        } else {
-                            document.getElementById('status').textContent = errorMsg;
+                            // Append error message safely using textContent to prevent XSS
+                            const errorSpan = document.createElement('span');
+                            errorSpan.textContent = ' Error: ' + data.error;
+                            statusElement.appendChild(errorSpan);
                         }
                     }
                 })
