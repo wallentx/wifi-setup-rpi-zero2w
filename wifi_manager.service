@@ -6,7 +6,9 @@ After=network.target
 ExecStart=/usr/bin/python3 /sciezka/app.py
 WorkingDirectory=/sciezka/
 Restart=always
-User=root
+DynamicUser=yes
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
 
 [Install]
 WantedBy=multi-user.target
