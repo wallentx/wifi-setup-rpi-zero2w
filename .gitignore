@@ -1,18 +1,26 @@
 # Environment variables
 .env
 
-# Python
+# Python cache
 __pycache__/
 *.py[cod]
+*.pyc
+*.pyo
+*.pyd
 *$py.class
 *.so
 .Python
+
+# Virtual environments
+venv/
+env/
+ENV/
 
 # Flask
 instance/
 .webassets-cache
 
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
