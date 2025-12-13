@@ -9,24 +9,24 @@
     <script>
         // Configuration for connection status polling
         const POLL_INTERVAL_MS = 2000;  // Check every 2 seconds
-        const MAX_RETRIES = 30;  // Maximum 30 retries (60 seconds with 2 second intervals)
+        const MAX_POLLS = 30;  // Maximum 30 poll attempts (60 seconds total with 2 second intervals)
         
-        // Poll for connection status with retry limit
-        let retryCount = 0;
+        // Track polling attempts to prevent infinite loops
+        let pollCount = 0;
         
         function checkStatus() {
-            if (retryCount >= MAX_RETRIES) {
+            // Check if we've exceeded our polling limit (30 attempts total)
+            if (pollCount >= MAX_POLLS) {
                 document.getElementById('status').textContent = 'Connection status check timed out. Please refresh the page.';
                 return;
             }
-            
-            retryCount++;
             
             fetch('/check_status')
                 .then(response => response.json())
                 .then(data => {
                     if (data.in_progress) {
                         // Still connecting, check again
+                        pollCount++;
                         setTimeout(checkStatus, POLL_INTERVAL_MS);
                     } else if (data.connected) {
                         // Successfully connected
@@ -35,6 +35,7 @@
                         // Connection failed
                         let errorMsg = 'Failed to connect to the network.';
                         if (data.error) {
+                            // Safe from XSS: textContent automatically escapes all content
                             errorMsg += ' Error: ' + data.error;
                         }
                         document.getElementById('status').textContent = errorMsg;
@@ -42,8 +43,9 @@
                 })
                 .catch(error => {
                     console.error('Error checking status:', error);
-                    // Retry after error if within retry limit
-                    if (retryCount < MAX_RETRIES) {
+                    pollCount++;
+                    // Retry after error if within poll limit
+                    if (pollCount < MAX_POLLS) {
                         setTimeout(checkStatus, POLL_INTERVAL_MS);
                     } else {
                         document.getElementById('status').textContent = 'Connection status check failed. Please refresh the page.';
