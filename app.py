@@ -16,7 +16,7 @@ app = Flask(__name__)
 
 AP_NAME = os.environ.get("AP_NAME", "piratos")
 AP_PASSWORD = os.environ.get("AP_PASSWORD", "raspberry")
-CONNECTION_WAIT_TIME = int(os.environ.get("CONNECTION_WAIT_TIME", "10"))  # Seconds to wait for connection to establish
+CONNECTION_WAIT_TIME = int(os.environ.get("CONNECTION_WAIT_TIME", "10"))  # Seconds to wait for connection to establish (configurable via env)
 
 # Store connection attempt state
 connection_state = {
