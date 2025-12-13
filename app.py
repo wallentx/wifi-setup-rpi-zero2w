@@ -1,6 +1,7 @@
 import logging
 import subprocess
 import time
+import os
 from flask import Flask, render_template, request, jsonify
 from threading import Thread, Lock
 
@@ -11,17 +12,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
 app = Flask(__name__)
 
-AP_NAME = "piratos"
-AP_PASSWORD = "raspberry"
+AP_NAME = os.environ.get("AP_NAME", "piratos")
+AP_PASSWORD = os.environ.get("AP_PASSWORD", "raspberry")
 CONNECTION_WAIT_TIME = 10  # Seconds to wait for connection to establish
 
 # Store connection attempt state

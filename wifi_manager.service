@@ -9,6 +9,8 @@ Restart=always
 DynamicUser=yes
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+# Load environment variables from .env file
+EnvironmentFile=-/opt/wifi_manager/.env
 
 [Install]
 WantedBy=multi-user.target
