@@ -111,8 +111,8 @@ def validate_network_input(ssid, password):
     if len(ssid.encode('utf-8')) > 32:
         raise ValueError("SSID must be at most 32 bytes when encoded in UTF-8")
     
-    # Password validation (WPA/WPA2: 8-63 characters)
-    # Require password to be provided and meet minimum length
+    # Password validation for WPA/WPA2/WPA3-Personal: 8-63 ASCII characters
+    # Note: This follows the standard PSK (Pre-Shared Key) requirements
     if not password:
         raise ValueError("Password is required")
     if len(password) < 8 or len(password) > 63:
