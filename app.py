@@ -30,8 +30,14 @@ connection_state_lock = Lock()
 
 def is_connected():
     wifi_connected = subprocess.run(['iwgetid'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    eth_connected = subprocess.run(['ip', 'link', 'show', 'eth0'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return wifi_connected.returncode == 0 or eth_connected.returncode == 0
+    eth0_info = subprocess.run(['ip', 'addr', 'show', 'eth0'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    eth_connected = False
+    if eth0_info.returncode == 0:
+        output = eth0_info.stdout
+        # Check if interface is UP and has an inet (IPv4) address
+        if "state UP" in output and "inet " in output:
+            eth_connected = True
+    return wifi_connected.returncode == 0 or eth_connected
 
 
 def log_subprocess_output(result):
