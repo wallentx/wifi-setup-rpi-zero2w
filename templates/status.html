@@ -5,10 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WiFi Status</title>
     <link rel="stylesheet" href="/static/style.css">
+    {% if checking %}
+    <script>
+        // Poll for connection status
+        function checkStatus() {
+            fetch('/check_status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.in_progress) {
+                        // Still connecting, check again in 2 seconds
+                        setTimeout(checkStatus, 2000);
+                    } else if (data.connected) {
+                        // Successfully connected
+                        document.getElementById('status').textContent = 'Connected successfully!';
+                    } else {
+                        // Connection failed
+                        document.getElementById('status').textContent = 'Failed to connect to the network.';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking status:', error);
+                    // Retry after error
+                    setTimeout(checkStatus, 2000);
+                });
+        }
+        
+        // Start polling when page loads
+        window.addEventListener('load', function() {
+            setTimeout(checkStatus, 2000);
+        });
+    </script>
+    {% endif %}
 </head>
 <body>
     <div class="container">
-        <h1>{{ status }}</h1>
+        <h1 id="status">{{ status }}</h1>
         <a href="/">Go Back</a>
     </div>
 </body>
