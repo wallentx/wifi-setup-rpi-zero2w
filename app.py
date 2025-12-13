@@ -180,7 +180,7 @@ def background_connect(ssid, password):
         connection_state['error'] = None
     
     # Attempt to connect
-    success, stdout, stderr = connect_to_network(ssid, password)
+        return render_template("status.html", status="Connecting...", should_poll=True)
     
     # Wait a moment for connection to establish
     time.sleep(CONNECTION_WAIT_TIME)
