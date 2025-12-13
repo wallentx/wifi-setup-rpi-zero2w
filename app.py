@@ -54,24 +54,32 @@ def start_ap():
         capture_output=True, text=True
     )
     log_subprocess_output(out)
+    if out.returncode != 0:
+        raise RuntimeError(f"Failed to add hotspot: {out.stderr.strip() or out.stdout.strip()}")
 
     out = subprocess.run(
         ["nmcli", "con", "modify", "hotspot", "wifi-sec.key-mgmt", "wpa-psk"], 
         capture_output=True, text=True
     )
     log_subprocess_output(out)
+    if out.returncode != 0:
+        raise RuntimeError(f"Failed to set key management: {out.stderr.strip() or out.stdout.strip()}")
 
     out = subprocess.run(
         ["nmcli", "con", "modify", "hotspot", "wifi-sec.psk", AP_PASSWORD], 
         capture_output=True, text=True
     )
     log_subprocess_output(out)
+    if out.returncode != 0:
+        raise RuntimeError(f"Failed to set hotspot password: {out.stderr.strip() or out.stdout.strip()}")
 
     out = subprocess.run(
         ["nmcli", "con", "modify", "hotspot", "802-11-wireless.mode", "ap", "802-11-wireless.band", "bg", "ipv4.method", "shared"], 
         capture_output=True, text=True
     )
     log_subprocess_output(out)
+    if out.returncode != 0:
+        raise RuntimeError(f"Failed to set hotspot mode and band: {out.stderr.strip() or out.stdout.strip()}")
 
 
 def stop_ap():
