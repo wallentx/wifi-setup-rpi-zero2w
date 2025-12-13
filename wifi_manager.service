@@ -3,8 +3,8 @@ Description=WiFi Manager
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/python3 /sciezka/app.py
-WorkingDirectory=/sciezka/
+ExecStart=/usr/bin/python3 /opt/wifi_manager/app.py
+WorkingDirectory=/opt/wifi_manager/
 Restart=always
 DynamicUser=yes
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
