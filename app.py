@@ -1,6 +1,7 @@
 import logging
 import subprocess
 import time
+import os
 from flask import Flask, render_template, request
 
 # Configure logging
@@ -12,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-AP_NAME = "piratos"
-AP_PASSWORD = "raspberry"
+AP_NAME = os.environ.get("AP_NAME", "piratos")
+AP_PASSWORD = os.environ.get("AP_PASSWORD", "raspberry")
 
 def is_connected():
     wifi_connected = subprocess.run(['iwgetid'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
