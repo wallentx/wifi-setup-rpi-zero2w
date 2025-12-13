@@ -1,6 +1,14 @@
+import logging
 import subprocess
 import time
 from flask import Flask, render_template, request
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -18,29 +26,37 @@ def start_ap():
         ["nmcli", "con", "add", "con-name", "hotspot", "ifname", "wlan0", "type", "wifi", "ssid", AP_NAME], 
         capture_output=True, text=True
     )
-    print(out.stdout)
-    print(out.stderr)
+    if out.stdout:
+        logger.info(out.stdout)
+    if out.stderr:
+        logger.error(out.stderr)
 
     out = subprocess.run(
         ["nmcli", "con", "modify", "hotspot", "wifi-sec.key-mgmt", "wpa-psk"], 
         capture_output=True, text=True
     )
-    print(out.stdout)
-    print(out.stderr)
+    if out.stdout:
+        logger.info(out.stdout)
+    if out.stderr:
+        logger.error(out.stderr)
 
     out = subprocess.run(
         ["nmcli", "con", "modify", "hotspot", "wifi-sec.psk", AP_PASSWORD], 
         capture_output=True, text=True
     )
-    print(out.stdout)
-    print(out.stderr)
+    if out.stdout:
+        logger.info(out.stdout)
+    if out.stderr:
+        logger.error(out.stderr)
 
     out = subprocess.run(
         ["nmcli", "con", "modify", "hotspot", "802-11-wireless.mode", "ap", "802-11-wireless.band", "bg", "ipv4.method", "shared"], 
         capture_output=True, text=True
     )
-    print(out.stdout)
-    print(out.stderr)
+    if out.stdout:
+        logger.info(out.stdout)
+    if out.stderr:
+        logger.error(out.stderr)
 
 
 def stop_ap():
@@ -61,7 +77,7 @@ def check_and_remove_hotspot():
         if "hotspot" in connection:
             subprocess.run(["nmcli", "con", "down", "hotspot"], stderr=subprocess.DEVNULL)
             subprocess.run(["nmcli", "con", "delete", "hotspot"], stderr=subprocess.DEVNULL)
-            print(f"Removed hotspot connection: {connection}")
+            logger.info(f"Removed hotspot connection: {connection}")
 
 def connect_to_network(ssid, password):
     check_and_remove_hotspot()
