@@ -20,13 +20,12 @@
                 return;
             }
             
-            retryCount++;
-            
             fetch('/check_status')
                 .then(response => response.json())
                 .then(data => {
                     if (data.in_progress) {
                         // Still connecting, check again
+                        retryCount++;
                         setTimeout(checkStatus, POLL_INTERVAL_MS);
                     } else if (data.connected) {
                         // Successfully connected
@@ -35,13 +34,19 @@
                         // Connection failed
                         let errorMsg = 'Failed to connect to the network.';
                         if (data.error) {
-                            errorMsg += ' Error: ' + data.error;
+                            // Use textContent to prevent XSS
+                            const statusElement = document.getElementById('status');
+                            statusElement.textContent = errorMsg;
+                            const errorText = document.createTextNode(' Error: ' + data.error);
+                            statusElement.appendChild(errorText);
+                        } else {
+                            document.getElementById('status').textContent = errorMsg;
                         }
-                        document.getElementById('status').textContent = errorMsg;
                     }
                 })
                 .catch(error => {
                     console.error('Error checking status:', error);
+                    retryCount++;
                     // Retry after error if within retry limit
                     if (retryCount < MAX_RETRIES) {
                         setTimeout(checkStatus, POLL_INTERVAL_MS);

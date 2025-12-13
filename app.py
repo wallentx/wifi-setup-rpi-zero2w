@@ -16,7 +16,7 @@ app = Flask(__name__)
 
 AP_NAME = os.environ.get("AP_NAME", "piratos")
 AP_PASSWORD = os.environ.get("AP_PASSWORD", "raspberry")
-CONNECTION_WAIT_TIME = 10  # Seconds to wait for connection to establish
+CONNECTION_WAIT_TIME = int(os.environ.get("CONNECTION_WAIT_TIME", "10"))  # Seconds to wait for connection to establish
 
 # Store connection attempt state
 connection_state = {
@@ -102,7 +102,24 @@ def check_and_remove_hotspot():
             subprocess.run(["nmcli", "con", "delete", "hotspot"], stderr=subprocess.DEVNULL)
             logger.info(f"Removed hotspot connection: {connection}")
 
+def validate_network_input(ssid, password):
+    """Validate SSID and password inputs to prevent command injection and ensure valid format."""
+    # SSID validation (802.11 standard: max 32 bytes)
+    if not ssid or len(ssid) > 32:
+        raise ValueError("SSID must be between 1 and 32 characters")
+    
+    # Password validation (WPA/WPA2: 8-63 characters)
+    if password and (len(password) < 8 or len(password) > 63):
+        raise ValueError("Password must be between 8 and 63 characters")
+    
+    # Check for null bytes which could be used for injection
+    if '\0' in ssid or '\0' in password:
+        raise ValueError("SSID and password cannot contain null bytes")
+    
+    return True
+
 def connect_to_network(ssid, password):
+    validate_network_input(ssid, password)
     check_and_remove_hotspot()
     stop_ap()
     result = subprocess.run(["nmcli", "dev", "wifi", "connect", ssid, "password", password], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -119,23 +136,30 @@ def background_connect(ssid, password):
         connection_state['success'] = None
         connection_state['error'] = None
     
-    # Attempt to connect
-    success, stdout, stderr = connect_to_network(ssid, password)
-    
-    # Wait a moment for connection to establish
-    time.sleep(CONNECTION_WAIT_TIME)
-    
-    # Update state with result
-    with connection_state_lock:
-        connection_state['in_progress'] = False
-        connection_state['success'] = success
-        connection_state['error'] = stderr.strip() if not success else None
+    try:
+        # Attempt to connect
+        success, stdout, stderr = connect_to_network(ssid, password)
+        
+        # Wait a moment for connection to establish
+        time.sleep(CONNECTION_WAIT_TIME)
+        
+        # Update state with result
+        with connection_state_lock:
+            connection_state['in_progress'] = False
+            connection_state['success'] = success
+            connection_state['error'] = stderr.strip() if not success else None
+    except ValueError as e:
+        # Handle validation errors
+        with connection_state_lock:
+            connection_state['in_progress'] = False
+            connection_state['success'] = False
+            connection_state['error'] = str(e)
 
 @app.route("/check_status")
 def check_status():
     """Endpoint to check current connection status."""
-    connected = is_connected()
     with connection_state_lock:
+        connected = is_connected()
         return jsonify({
             'connected': connected,
             'in_progress': connection_state['in_progress'],
@@ -149,6 +173,12 @@ def home():
     if request.method == "POST":
         ssid = request.form["network"]
         password = request.form["password"]
+        
+        # Validate input before proceeding
+        try:
+            validate_network_input(ssid, password)
+        except ValueError as e:
+            return render_template("status.html", status=f"Invalid input: {str(e)}", checking=False)
         
         # Start background connection thread
         thread = Thread(target=background_connect, args=(ssid, password))
