@@ -6,7 +6,8 @@ After=network.target
 ExecStart=/usr/bin/python3 /opt/wifi_manager/app.py
 WorkingDirectory=/opt/wifi_manager/
 Restart=always
-DynamicUser=yes
+User=wifi_manager
+Group=wifi_manager
 CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
 AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
 # Load environment variables from .env file
