@@ -2,7 +2,8 @@ import logging
 import subprocess
 import time
 import os
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
+from threading import Thread, Lock
 
 # Configure logging
 logging.basicConfig(
@@ -15,6 +16,17 @@ app = Flask(__name__)
 
 AP_NAME = os.environ.get("AP_NAME", "piratos")
 AP_PASSWORD = os.environ.get("AP_PASSWORD", "raspberry")
+CONNECTION_WAIT_TIME = 10  # Seconds to wait for connection to establish
+
+# Store connection attempt state
+connection_state = {
+    'in_progress': False,
+    'ssid': None,
+    'timestamp': None,
+    'success': None,
+    'error': None
+}
+connection_state_lock = Lock()
 
 def is_connected():
     wifi_connected = subprocess.run(['iwgetid'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -85,18 +97,55 @@ def connect_to_network(ssid, password):
     result = subprocess.run(["nmcli", "dev", "wifi", "connect", ssid, "password", password], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return result.returncode == 0, result.stdout.decode(), result.stderr.decode()
 
+def background_connect(ssid, password):
+    """Handle connection in background thread."""
+    global connection_state
+    
+    with connection_state_lock:
+        connection_state['in_progress'] = True
+        connection_state['ssid'] = ssid
+        connection_state['timestamp'] = time.time()
+        connection_state['success'] = None
+        connection_state['error'] = None
+    
+    # Attempt to connect
+    success, stdout, stderr = connect_to_network(ssid, password)
+    
+    # Wait a moment for connection to establish
+    time.sleep(CONNECTION_WAIT_TIME)
+    
+    # Update state with result
+    with connection_state_lock:
+        connection_state['in_progress'] = False
+        connection_state['success'] = success
+        connection_state['error'] = stderr.strip() if not success else None
+
+@app.route("/check_status")
+def check_status():
+    """Endpoint to check current connection status."""
+    connected = is_connected()
+    with connection_state_lock:
+        return jsonify({
+            'connected': connected,
+            'in_progress': connection_state['in_progress'],
+            'ssid': connection_state['ssid'],
+            'success': connection_state['success'],
+            'error': connection_state['error']
+        })
+
 @app.route("/", methods=["GET", "POST"])
 def home():
     if request.method == "POST":
         ssid = request.form["network"]
         password = request.form["password"]
-        success, stdout, stderr = connect_to_network(ssid, password)
-        time.sleep(10)
-        if is_connected():
-            return render_template("status.html", status="Connected successfully!")
-        else:
-            error_message = stderr.strip() or "Failed to connect to the network."
-            return render_template("status.html", status=f"Connection failed: {error_message}")
+        
+        # Start background connection thread
+        thread = Thread(target=background_connect, args=(ssid, password))
+        thread.daemon = True
+        thread.start()
+        
+        # Return immediately with a status page that will poll for updates
+        return render_template("status.html", status="Connecting...", checking=True)
 
     networks = get_available_networks()
     return render_template("index.html", networks=networks)
