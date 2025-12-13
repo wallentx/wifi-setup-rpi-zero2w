@@ -8,8 +8,8 @@ WorkingDirectory=/opt/wifi_manager/
 Restart=always
 User=wifi_manager
 Group=wifi_manager
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
 # Load environment variables from .env file
 EnvironmentFile=-/opt/wifi_manager/.env
 
