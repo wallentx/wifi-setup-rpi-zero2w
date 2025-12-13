@@ -21,42 +21,38 @@ def is_connected():
     return wifi_connected.returncode == 0 or eth_connected.returncode == 0
 
 
+def log_subprocess_output(result):
+    """Log subprocess output, treating stdout as info and stderr as error."""
+    if result.stdout:
+        logger.info(result.stdout.strip())
+    if result.stderr:
+        logger.error(result.stderr.strip())
+
+
 def start_ap():
     out = subprocess.run(
         ["nmcli", "con", "add", "con-name", "hotspot", "ifname", "wlan0", "type", "wifi", "ssid", AP_NAME], 
         capture_output=True, text=True
     )
-    if out.stdout:
-        logger.info(out.stdout)
-    if out.stderr:
-        logger.error(out.stderr)
+    log_subprocess_output(out)
 
     out = subprocess.run(
         ["nmcli", "con", "modify", "hotspot", "wifi-sec.key-mgmt", "wpa-psk"], 
         capture_output=True, text=True
     )
-    if out.stdout:
-        logger.info(out.stdout)
-    if out.stderr:
-        logger.error(out.stderr)
+    log_subprocess_output(out)
 
     out = subprocess.run(
         ["nmcli", "con", "modify", "hotspot", "wifi-sec.psk", AP_PASSWORD], 
         capture_output=True, text=True
     )
-    if out.stdout:
-        logger.info(out.stdout)
-    if out.stderr:
-        logger.error(out.stderr)
+    log_subprocess_output(out)
 
     out = subprocess.run(
         ["nmcli", "con", "modify", "hotspot", "802-11-wireless.mode", "ap", "802-11-wireless.band", "bg", "ipv4.method", "shared"], 
         capture_output=True, text=True
     )
-    if out.stdout:
-        logger.info(out.stdout)
-    if out.stderr:
-        logger.error(out.stderr)
+    log_subprocess_output(out)
 
 
 def stop_ap():
