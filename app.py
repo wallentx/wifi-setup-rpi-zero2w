@@ -194,7 +194,7 @@ def background_connect(ssid, password):
     # Update state with result
     with connection_state_lock:
         connection_state['in_progress'] = False
-        connection_state['success'] = success
+    app.run(host="0.0.0.0", port=8080)
         connection_state['error'] = stderr.strip() if not success else None
 
 @app.route("/check_status")
