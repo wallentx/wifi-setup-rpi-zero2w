@@ -125,14 +125,14 @@ def validate_network_input(ssid, password):
     return True
 
 def connect_to_network(ssid, password):
-    validate_network_input(ssid, password)
+    """Connect to a WiFi network. Input validation should be done by caller."""
     check_and_remove_hotspot()
     stop_ap()
     result = subprocess.run(["nmcli", "dev", "wifi", "connect", ssid, "password", password], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return result.returncode == 0, result.stdout.decode(), result.stderr.decode()
 
 def background_connect(ssid, password):
-    """Handle connection in background thread."""
+    """Handle connection in background thread. Assumes input has already been validated."""
     global connection_state
     
     with connection_state_lock:
@@ -142,24 +142,17 @@ def background_connect(ssid, password):
         connection_state['success'] = None
         connection_state['error'] = None
     
-    try:
-        # Attempt to connect
-        success, stdout, stderr = connect_to_network(ssid, password)
-        
-        # Wait a moment for connection to establish
-        time.sleep(CONNECTION_WAIT_TIME)
-        
-        # Update state with result
-        with connection_state_lock:
-            connection_state['in_progress'] = False
-            connection_state['success'] = success
-            connection_state['error'] = stderr.strip() if not success else None
-    except ValueError as e:
-        # Handle validation errors
-        with connection_state_lock:
-            connection_state['in_progress'] = False
-            connection_state['success'] = False
-            connection_state['error'] = str(e)
+    # Attempt to connect
+    success, stdout, stderr = connect_to_network(ssid, password)
+    
+    # Wait a moment for connection to establish
+    time.sleep(CONNECTION_WAIT_TIME)
+    
+    # Update state with result
+    with connection_state_lock:
+        connection_state['in_progress'] = False
+        connection_state['success'] = success
+        connection_state['error'] = stderr.strip() if not success else None
 
 @app.route("/check_status")
 def check_status():
