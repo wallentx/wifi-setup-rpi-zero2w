@@ -1,7 +1,7 @@
 import subprocess
 import time
 from flask import Flask, render_template, request, jsonify
-from threading import Thread
+from threading import Thread, Lock
 
 app = Flask(__name__)
 
@@ -12,8 +12,11 @@ AP_PASSWORD = "raspberry"
 connection_state = {
     'in_progress': False,
     'ssid': None,
-    'timestamp': None
+    'timestamp': None,
+    'success': None,
+    'error': None
 }
+connection_state_lock = Lock()
 
 def is_connected():
     wifi_connected = subprocess.run(['iwgetid'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -80,28 +83,38 @@ def connect_to_network(ssid, password):
 def background_connect(ssid, password):
     """Handle connection in background thread."""
     global connection_state
-    connection_state['in_progress'] = True
-    connection_state['ssid'] = ssid
-    connection_state['timestamp'] = time.time()
+    
+    with connection_state_lock:
+        connection_state['in_progress'] = True
+        connection_state['ssid'] = ssid
+        connection_state['timestamp'] = time.time()
+        connection_state['success'] = None
+        connection_state['error'] = None
     
     # Attempt to connect
-    connect_to_network(ssid, password)
+    success, stdout, stderr = connect_to_network(ssid, password)
     
     # Wait a moment for connection to establish
     time.sleep(10)
     
-    # Update state
-    connection_state['in_progress'] = False
+    # Update state with result
+    with connection_state_lock:
+        connection_state['in_progress'] = False
+        connection_state['success'] = success
+        connection_state['error'] = stderr.strip() if not success else None
 
 @app.route("/check_status")
 def check_status():
     """Endpoint to check current connection status."""
     connected = is_connected()
-    return jsonify({
-        'connected': connected,
-        'in_progress': connection_state['in_progress'],
-        'ssid': connection_state['ssid']
-    })
+    with connection_state_lock:
+        return jsonify({
+            'connected': connected,
+            'in_progress': connection_state['in_progress'],
+            'ssid': connection_state['ssid'],
+            'success': connection_state['success'],
+            'error': connection_state['error']
+        })
 
 @app.route("/", methods=["GET", "POST"])
 def home():
