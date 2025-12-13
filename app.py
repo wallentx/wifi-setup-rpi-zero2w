@@ -141,7 +141,7 @@ def home():
         
         # Start background connection thread
         thread = Thread(target=background_connect, args=(ssid, password))
-        thread.daemon = True
+        # Do not set thread.daemon = True; let the thread run to completion
         thread.start()
         
         # Return immediately with a status page that will poll for updates
