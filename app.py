@@ -115,14 +115,16 @@ def validate_network_input(ssid, password):
     # Note: This follows the standard PSK (Pre-Shared Key) requirements
     if not password:
         raise ValueError("Password is required")
-    if len(password) < 8 or len(password) > 63:
-        raise ValueError("Password must be between 8 and 63 characters")
     
     # Ensure password contains only ASCII characters (required for WPA PSK)
     try:
         password.encode('ascii')
     except UnicodeEncodeError:
         raise ValueError("Password must contain only ASCII characters")
+    
+    # Validate length (ASCII characters are 1 byte each, so character count = byte count)
+    if len(password) < 8 or len(password) > 63:
+        raise ValueError("Password must be between 8 and 63 characters")
     
     # Check for null bytes which could be used for injection
     if '\0' in ssid or '\0' in password:
