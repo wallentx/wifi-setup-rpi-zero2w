@@ -105,8 +105,11 @@ def check_and_remove_hotspot():
 def validate_network_input(ssid, password):
     """Validate SSID and password inputs to prevent command injection and ensure valid format."""
     # SSID validation (802.11 standard: max 32 bytes)
-    if not ssid or len(ssid) > 32:
-        raise ValueError("SSID must be between 1 and 32 characters")
+    if not ssid:
+        raise ValueError("SSID is required")
+    # Check byte length for Unicode support
+    if len(ssid.encode('utf-8')) > 32:
+        raise ValueError("SSID must be at most 32 bytes when encoded in UTF-8")
     
     # Password validation (WPA/WPA2: 8-63 characters)
     # Require password to be provided and meet minimum length
