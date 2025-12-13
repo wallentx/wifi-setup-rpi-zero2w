@@ -16,7 +16,8 @@
                 <option value="{{ net }}">{{ net }}</option>
                 {% endfor %}
             </select>
-            <input type="password" name="password" placeholder="WiFi Password" required>
+            <label for="password">WiFi Password:</label>
+            <input type="password" id="password" name="password" placeholder="WiFi Password" required>
             <button type="submit">Connect</button>
         </form>
     </div>
