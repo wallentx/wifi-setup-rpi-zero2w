@@ -1,6 +1,9 @@
-# Python
+# Python cache
 __pycache__/
 *.py[cod]
+*.pyc
+*.pyo
+*.pyd
 *$py.class
 *.so
 .Python
@@ -19,3 +22,7 @@ ENV/
 *.swp
 *.swo
 *~
+
+# OS
+.DS_Store
+Thumbs.db
