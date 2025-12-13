@@ -173,7 +173,13 @@ def background_connect(ssid, password):
     global connection_state
     
     with connection_state_lock:
-        connection_state['in_progress'] = True
+        
+        # Validate password length
+        if len(password) < 8:
+            networks = get_available_networks()
+            error = "Password must be at least 8 characters long."
+            return render_template("index.html", networks=networks, error=error)
+        
         connection_state['ssid'] = ssid
         connection_state['timestamp'] = time.time()
         connection_state['success'] = None
