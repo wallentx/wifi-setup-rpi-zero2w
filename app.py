@@ -118,6 +118,12 @@ def validate_network_input(ssid, password):
     if len(password) < 8 or len(password) > 63:
         raise ValueError("Password must be between 8 and 63 characters")
     
+    # Ensure password contains only ASCII characters (required for WPA PSK)
+    try:
+        password.encode('ascii')
+    except UnicodeEncodeError:
+        raise ValueError("Password must contain only ASCII characters")
+    
     # Check for null bytes which could be used for injection
     if '\0' in ssid or '\0' in password:
         raise ValueError("SSID and password cannot contain null bytes")
@@ -125,7 +131,12 @@ def validate_network_input(ssid, password):
     return True
 
 def connect_to_network(ssid, password):
-    """Connect to a WiFi network. Input validation should be done by caller."""
+    """Connect to a WiFi network. Input validation should be done by caller.
+    
+    Note: Password is passed as command line argument which may be visible in process lists.
+    This is a known limitation of using nmcli in this manner. For production use, consider
+    using nmcli's connection profile approach or stdin input for better security.
+    """
     check_and_remove_hotspot()
     stop_ap()
     result = subprocess.run(["nmcli", "dev", "wifi", "connect", ssid, "password", password], stdout=subprocess.PIPE, stderr=subprocess.PIPE)

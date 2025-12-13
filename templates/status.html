@@ -34,6 +34,7 @@
                         // Connection failed
                         let errorMsg = 'Failed to connect to the network.';
                         if (data.error) {
+                            // Safe from XSS: textContent automatically escapes all content
                             errorMsg += ' Error: ' + data.error;
                         }
                         document.getElementById('status').textContent = errorMsg;
