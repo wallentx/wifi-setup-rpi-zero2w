@@ -66,16 +66,21 @@ def check_and_remove_hotspot():
 def connect_to_network(ssid, password):
     check_and_remove_hotspot()
     stop_ap()
-    subprocess.run(["nmcli", "dev", "wifi", "connect", ssid, "password", password])
+    result = subprocess.run(["nmcli", "dev", "wifi", "connect", ssid, "password", password], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return result.returncode == 0, result.stdout.decode(), result.stderr.decode()
 
 @app.route("/", methods=["GET", "POST"])
 def home():
     if request.method == "POST":
         ssid = request.form["network"]
         password = request.form["password"]
-        connect_to_network(ssid, password)
+        success, stdout, stderr = connect_to_network(ssid, password)
         time.sleep(10)
-        return render_template("status.html", status="Trying to connect...")
+        if is_connected():
+            return render_template("status.html", status="Connected successfully!")
+        else:
+            error_message = stderr.strip() or "Failed to connect to the network."
+            return render_template("status.html", status=f"Connection failed: {error_message}")
 
     networks = get_available_networks()
     return render_template("index.html", networks=networks)
