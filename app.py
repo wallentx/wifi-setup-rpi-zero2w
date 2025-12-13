@@ -109,7 +109,25 @@ def validate_network_input(ssid, password):
         raise ValueError("SSID is required")
     # Check byte length for Unicode support
     if len(ssid.encode('utf-8')) > 32:
-        raise ValueError("SSID must be at most 32 bytes when encoded in UTF-8")
+    """
+    Attempt to connect to a Wi-Fi network in a background thread.
+
+    Parameters:
+        ssid (str): The SSID of the Wi-Fi network to connect to.
+        password (str): The password for the Wi-Fi network.
+
+    Returns:
+        None
+
+    Side Effects:
+        Updates the global `connection_state` dictionary to reflect the connection attempt's progress and result.
+
+    Threading:
+        Intended to be run in a background thread. Not thread-safe on its own; uses `connection_state_lock` to synchronize access to `connection_state`.
+
+    Other Notes:
+        Waits for `CONNECTION_WAIT_TIME` seconds (typically 10 seconds) after initiating the connection attempt to allow the connection to establish before updating the state.
+    """
     
     # Password validation for WPA/WPA2/WPA3-Personal: 8-63 ASCII characters
     # Note: This follows the standard PSK (Pre-Shared Key) requirements
