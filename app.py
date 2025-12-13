@@ -40,18 +40,28 @@ def is_connected():
     return wifi_connected.returncode == 0 or eth_connected
 
 
+def sanitize_output(output):
+    """Redact sensitive information from subprocess output."""
+    if not output:
+        return output
+    # Redact AP_PASSWORD if present
+    return output.replace(AP_PASSWORD, "***REDACTED***")
+
 def log_subprocess_output(result):
     """Log subprocess output, treating stdout as info and stderr as error only on failure."""
     stdout_stripped = result.stdout.strip() if result.stdout else ""
     stderr_stripped = result.stderr.strip() if result.stderr else ""
+
+    sanitized_stdout = sanitize_output(stdout_stripped)
+    sanitized_stderr = sanitize_output(stderr_stripped)
     
-    if stdout_stripped:
-        logger.info(stdout_stripped)
-    if stderr_stripped:
+    if sanitized_stdout:
+        logger.info(sanitized_stdout)
+    if sanitized_stderr:
         if result.returncode != 0:
-            logger.error(stderr_stripped)
+            logger.error(sanitized_stderr)
         else:
-            logger.info(stderr_stripped)
+            logger.info(sanitized_stderr)
 
 
 def start_ap():
