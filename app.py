@@ -7,6 +7,7 @@ app = Flask(__name__)
 
 AP_NAME = "piratos"
 AP_PASSWORD = "raspberry"
+CONNECTION_WAIT_TIME = 10  # Seconds to wait for connection to establish
 
 # Store connection attempt state
 connection_state = {
@@ -95,7 +96,7 @@ def background_connect(ssid, password):
     success, stdout, stderr = connect_to_network(ssid, password)
     
     # Wait a moment for connection to establish
-    time.sleep(10)
+    time.sleep(CONNECTION_WAIT_TIME)
     
     # Update state with result
     with connection_state_lock:
