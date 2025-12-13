@@ -12,11 +12,6 @@ def is_connected():
     eth_connected = subprocess.run(['ip', 'link', 'show', 'eth0'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return wifi_connected.returncode == 0 or eth_connected.returncode == 0
 
-# def start_ap():
-#     subprocess.run(["nmcli", "con", "add", "con-name", "hotspot", "ifname", "wlan0", "type", "wifi", "ssid", AP_NAME])
-#     subprocess.run(["nmcli", "con", "modify", "hotspot", "wifi-sec.key-mgmt", "wpa-psk"])
-#     subprocess.run(["nmcli", "con", "modify", "hotspot", "wifi-sec.psk", AP_PASSWORD])
-#     subprocess.run(["nmcli", "con", "modify", "hotspot", "802-11-wireless.mode", "ap", "802-11-wireless.band", "bg", "ipv4.method", "shared"])
 
 def start_ap():
     out = subprocess.run(
