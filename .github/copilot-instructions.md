@@ -34,8 +34,9 @@ This is a Flask-based web application designed for Raspberry Pi Zero 2W that pro
    - Validate password requirements (8-63 ASCII characters for WPA)
 
 2. **Logging**: Never log passwords or sensitive credentials
-   - Use the existing `sanitize_output()` function to redact passwords from logs
-   - Apply sanitization to all subprocess output before logging
+   - Use the existing `sanitize_output()` function to redact the AP_PASSWORD from logs
+   - Consider extending sanitization for user-provided passwords if needed
+   - Apply sanitization to subprocess output before logging
 
 3. **Password Handling**:
    - Passwords are currently passed as command-line arguments (visible in process lists)
@@ -75,8 +76,8 @@ This is a Flask-based web application designed for Raspberry Pi Zero 2W that pro
 ├── static/
 │   └── style.css            # Application styles
 ├── .env.example             # Environment variable template
-├── wifi_manager.service     # systemd service configuration
-└── README.md                # Documentation
+├── wifi_manager.service     # systemd service (for /opt/wifi_manager/ deployment)
+└── README.md                # Documentation (also describes wifi-setup.service)
 ```
 
 ## Dependencies
@@ -128,13 +129,25 @@ sudo python3 app.py
   - Security tests for input validation
 
 ### Systemd Service Deployment
-```bash
-# Copy files to /opt/wifi_manager/
-# Copy wifi_manager.service to /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable wifi_manager.service
-sudo systemctl start wifi_manager.service
-```
+
+**Two deployment options**:
+
+1. **Custom path deployment** (using `wifi-setup.service`):
+   ```bash
+   # Place files anywhere and create custom service file
+   # Follow README.md instructions for this approach
+   ```
+
+2. **Standard path deployment** (using `wifi_manager.service`):
+   ```bash
+   # Copy files to /opt/wifi_manager/
+   sudo cp wifi_manager.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable wifi_manager.service
+   sudo systemctl start wifi_manager.service
+   ```
+
+**Note**: Both approaches work. The included `wifi_manager.service` file is pre-configured for `/opt/wifi_manager/`, while README.md shows how to create a custom service for any path.
 
 ## Important Implementation Details
 
