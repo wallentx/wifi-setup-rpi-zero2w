@@ -1,7 +1,7 @@
 [project]
 name = "wifi-setup-rpi-zero2w"
 version = "0.1.0"
-description = "Add your description here"
+description = "A Flask-based web portal for configuring WiFi on Raspberry Pi Zero 2W"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
