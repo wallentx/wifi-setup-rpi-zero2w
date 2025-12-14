@@ -125,26 +125,8 @@ def validate_network_input(ssid, password):
         raise ValueError("SSID is required")
     # Check byte length for Unicode support
     if len(ssid.encode('utf-8')) > 32:
-    """
-    Attempt to connect to a Wi-Fi network in a background thread.
+        raise ValueError("SSID must be 32 bytes or fewer")
 
-    Parameters:
-        ssid (str): The SSID of the Wi-Fi network to connect to.
-        password (str): The password for the Wi-Fi network.
-
-    Returns:
-        None
-
-    Side Effects:
-        Updates the global `connection_state` dictionary to reflect the connection attempt's progress and result.
-
-    Threading:
-        Intended to be run in a background thread. Not thread-safe on its own; uses `connection_state_lock` to synchronize access to `connection_state`.
-
-    Other Notes:
-        Waits for `CONNECTION_WAIT_TIME` seconds (typically 10 seconds) after initiating the connection attempt to allow the connection to establish before updating the state.
-    """
-    
     # Password validation for WPA/WPA2/WPA3-Personal: 8-63 ASCII characters
     # Note: This follows the standard PSK (Pre-Shared Key) requirements
     if not password:
@@ -183,20 +165,14 @@ def background_connect(ssid, password):
     global connection_state
     
     with connection_state_lock:
-        
-        # Validate password length
-        if len(password) < 8:
-            networks = get_available_networks()
-            error = "Password must be at least 8 characters long."
-            return render_template("index.html", networks=networks, error=error)
-        
+        connection_state['in_progress'] = True
         connection_state['ssid'] = ssid
         connection_state['timestamp'] = time.time()
         connection_state['success'] = None
         connection_state['error'] = None
     
     # Attempt to connect
-        return render_template("status.html", status="Connecting...", should_poll=True)
+    success, stdout, stderr = connect_to_network(ssid, password)
     
     # Wait a moment for connection to establish
     time.sleep(CONNECTION_WAIT_TIME)
@@ -204,7 +180,7 @@ def background_connect(ssid, password):
     # Update state with result
     with connection_state_lock:
         connection_state['in_progress'] = False
-    app.run(host="0.0.0.0", port=8080)
+        connection_state['success'] = success
         connection_state['error'] = stderr.strip() if not success else None
 
 @app.route("/check_status")
@@ -246,4 +222,4 @@ def home():
 if __name__ == "__main__":
     if not is_connected():
         start_ap()
-    app.run(host="0.0.0.0", port=80)
+    app.run(host="0.0.0.0", port=8080)
