@@ -84,13 +84,14 @@ This is a Flask-based web application designed for Raspberry Pi Zero 2W that pro
 
 ### System Requirements
 - Python 3
+- `uv`
 - NetworkManager (nmcli)
 - wireless-tools
 
 ### Python Packages
-- Flask (install with: `sudo pip3 install flask`)
+- Flask (managed via `uv`)
 
-**Note**: There is no `requirements.txt` file. Dependencies are documented in README.md.
+**Note**: Dependencies are managed via `pyproject.toml`.
 
 ## Setup and Build Instructions
 
@@ -98,10 +99,10 @@ This is a Flask-based web application designed for Raspberry Pi Zero 2W that pro
 ```bash
 # Install system dependencies
 sudo apt update
-sudo apt install python3-pip python3-dev wireless-tools
+sudo apt install python3-dev wireless-tools
 
 # Install Python dependencies
-sudo pip3 install flask
+uv sync
 
 # Copy environment template (optional)
 cp .env.example .env
@@ -112,12 +113,12 @@ cp .env.example .env
 
 **Development mode (port 8080, no root required)**:
 ```bash
-python3 app.py
+uv run app.py
 ```
 
 **Production mode (port 80, requires root)**:
 ```bash
-sudo python3 app.py
+sudo uv run app.py
 ```
 
 ### Testing
