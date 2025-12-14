@@ -7,21 +7,23 @@ This is a simple web-based interface that allows you to connect your Raspberry P
 Make sure you have the following installed on your Raspberry Pi:
 
 - Python 3
-- `pip3` (Python package manager)
+- `uv` (Python package and project manager) - [Installation instructions](https://docs.astral.sh/uv/getting-started/installation/)
 - `nmcli` (NetworkManager)
 
 ## Installation
 
-1. Install required dependencies:
+1. Install required system dependencies:
 
 ```bash
 sudo apt update
-sudo apt install python3-pip python3-dev wireless-tools network-manager
+sudo apt install python3-dev wireless-tools network-manager
 ```
 
-2. Install Python libraries:
+2. Install Python dependencies:
 
-`sudo pip3 install flask`
+```bash
+uv sync
+```
 
 3. Configure environment variables (optional):
 
