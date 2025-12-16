@@ -155,8 +155,7 @@ def safe_restart_ap():
         # Try one more time
         try:
             attempt_ap_restart()
-            # Record this retry as a restart too
-            record_ap_restart()
+            # Don't record retry as a separate restart - it's part of the same attempt
             with monitor_state_lock:
                 connection_monitor_state['state'] = 'AP_MODE'
             logger.info("Access Point restarted successfully on retry")
