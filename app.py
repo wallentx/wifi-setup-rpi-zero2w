@@ -33,10 +33,10 @@ connection_state = {
     'ssid': None,
     'timestamp': None,
     'success': None,
-    'error': None,
-    'connection_lock': Lock()  # Prevent concurrent connection attempts
+    'error': None
 }
 connection_state_lock = Lock()
+connection_attempt_lock = Lock()  # Prevent concurrent connection attempts
 
 # Store connection monitoring state
 connection_monitor_state = {
@@ -173,19 +173,21 @@ def connection_monitor_loop():
 
     while True:
         try:
-            # Check connection status immediately (before sleeping)
-            connected = is_connected()
-
-            # Atomically check and update state as needed
+            # Check if monitoring should stop (quick check with lock)
             with monitor_state_lock:
                 if not connection_monitor_state['monitor_active']:
                     logger.info("Connection monitor stopping")
                     break
-                
                 current_state = connection_monitor_state['state']
-                
-                # Determine if we need to restart AP
-                restart_ap = False
+            
+            # Check connection status outside the lock
+            connected = is_connected()
+
+            # Atomically update state as needed
+            restart_ap = False
+            with monitor_state_lock:
+                # Re-check state in case it changed
+                current_state = connection_monitor_state['state']
                 
                 # If we were monitoring and connection dropped
                 if current_state == 'MONITORING' and not connected:
@@ -411,8 +413,7 @@ def background_connect(ssid, password):
     global connection_state, connection_monitor_state
 
     # Prevent concurrent connection attempts
-    connection_lock = connection_state['connection_lock']
-    if not connection_lock.acquire(blocking=False):
+    if not connection_attempt_lock.acquire(blocking=False):
         logger.warning("Connection attempt already in progress, ignoring new request")
         return
 
@@ -486,7 +487,7 @@ def background_connect(ssid, password):
             safe_restart_ap()
     finally:
         # Always release the lock
-        connection_lock.release()
+        connection_attempt_lock.release()
 
 @app.route("/check_status")
 def check_status():
