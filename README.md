@@ -153,8 +153,9 @@ sudo systemctl start wifi-setup.service
 
 ### Circuit Breaker
 - Prevents excessive restart loops that could drain battery or cause system instability
-- Default: After 3 restarts in 5 minutes, applies increasing delays (5s → 30s → 3min)
-- Resets after successful connection lasting 10+ minutes
+- Default: After 3 restarts in 5 minutes, applies exponential backoff delays: 30s → 180s (3min) → 1080s (18min) → capped at 1 hour
+- **Warning:** The exponential backoff grows rapidly. After each failure beyond the restart threshold, the delay increases exponentially and is capped at 1 hour maximum to ensure the AP eventually restarts. Restart the service to reset the backoff.
+- Resets immediately upon successful connection (restart history also expires after 5 minutes)
 
 ## API Endpoints
 
