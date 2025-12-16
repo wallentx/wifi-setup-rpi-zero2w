@@ -3,7 +3,7 @@ import subprocess
 import time
 import os
 from flask import Flask, render_template, request, jsonify
-from threading import Thread, Lock
+from threading import Thread, Lock, Event
 
 # Configure logging
 logging.basicConfig(
@@ -24,7 +24,8 @@ CONNECTION_RETRIES = int(os.environ.get("CONNECTION_RETRIES", "1"))  # Number of
 RETRY_DELAY = int(os.environ.get("RETRY_DELAY", "5"))  # Seconds to wait between retry attempts
 MAX_RESTARTS_PER_WINDOW = int(os.environ.get("MAX_RESTARTS_PER_WINDOW", "3"))  # Circuit breaker: max restarts before backoff
 RESTART_WINDOW = int(os.environ.get("RESTART_WINDOW", "300"))  # Circuit breaker: time window in seconds
-BACKOFF_MULTIPLIER = int(os.environ.get("BACKOFF_MULTIPLIER", "6"))  # Circuit breaker: exponential backoff multiplier
+BACKOFF_BASE = int(os.environ.get("BACKOFF_BASE", "6"))  # Circuit breaker: exponential backoff base
+MAX_BACKOFF = int(os.environ.get("MAX_BACKOFF", "3600"))  # Circuit breaker: maximum backoff delay in seconds (default: 1 hour)
 
 # Store connection attempt state
 connection_state = {
@@ -35,6 +36,7 @@ connection_state = {
     'error': None
 }
 connection_state_lock = Lock()
+connection_attempt_lock = Lock()  # Prevent concurrent connection attempts
 
 # Store connection monitoring state
 connection_monitor_state = {
@@ -43,7 +45,8 @@ connection_monitor_state = {
     'last_ssid': None,
     'restart_history': [],  # List of restart timestamps
     'current_backoff': 0,   # Current backoff delay in seconds
-    'monitor_thread': None
+    'monitor_thread': None,
+    'stop_event': Event()   # Event for immediate thread wake-up
 }
 monitor_state_lock = Lock()
 
@@ -73,10 +76,12 @@ def calculate_backoff(restart_history):
     restart_count = len(recent_restarts)
 
     if restart_count >= MAX_RESTARTS_PER_WINDOW:
-        # Apply exponential backoff
+        # Apply exponential backoff with cap
         excess_restarts = restart_count - MAX_RESTARTS_PER_WINDOW + 1
-        backoff = RETRY_DELAY * (BACKOFF_MULTIPLIER ** excess_restarts)
-        logger.warning(f"Circuit breaker: {restart_count} restarts in {RESTART_WINDOW}s window. Applying {backoff}s backoff.")
+        backoff = RETRY_DELAY * (BACKOFF_BASE ** excess_restarts)
+        # Cap the backoff to prevent it from growing unbounded
+        backoff = min(backoff, MAX_BACKOFF)
+        logger.warning(f"Circuit breaker: {restart_count} restarts in {RESTART_WINDOW}s window. Applying {backoff}s backoff (capped at {MAX_BACKOFF}s).")
         return backoff
 
     return 0
@@ -102,12 +107,21 @@ def record_ap_restart():
         )
 
 
+def attempt_ap_restart():
+    """Helper to perform the actual AP restart."""
+    stop_ap()
+    start_ap()
+
+
 def safe_restart_ap():
     """Safely restart AP with circuit breaker protection."""
     global connection_monitor_state
 
     try:
-        # Check current backoff
+        # Record the restart before calculating backoff
+        record_ap_restart()
+
+        # Check current backoff after recording
         with monitor_state_lock:
             backoff = connection_monitor_state['current_backoff']
 
@@ -116,15 +130,7 @@ def safe_restart_ap():
             time.sleep(backoff)
 
         logger.info("Restarting Access Point...")
-
-        # Stop AP if it exists
-        stop_ap()
-
-        # Start AP
-        start_ap()
-
-        # Record the restart
-        record_ap_restart()
+        attempt_ap_restart()
 
         # Update state
         with monitor_state_lock:
@@ -143,13 +149,15 @@ def safe_restart_ap():
 
         # Try one more time
         try:
-            stop_ap()
-            start_ap()
+            attempt_ap_restart()
+            # Don't record retry as a separate restart - it's part of the same attempt
             with monitor_state_lock:
                 connection_monitor_state['state'] = 'AP_MODE'
             logger.info("Access Point restarted successfully on retry")
         except Exception as retry_error:
             logger.error(f"Failed to restart AP on retry: {str(retry_error)}")
+            with monitor_state_lock:
+                connection_monitor_state['state'] = 'FAILED'
 
 
 def connection_monitor_loop():
@@ -157,43 +165,53 @@ def connection_monitor_loop():
     global connection_monitor_state
 
     logger.info("Connection monitor started")
+    
+    # Get reference to stop event for efficient access
+    # Note: While the Event object reference doesn't change, its state (set/clear) does
+    with monitor_state_lock:
+        stop_event = connection_monitor_state['stop_event']
 
     while True:
-        # Check if monitoring should stop
-        with monitor_state_lock:
-            if not connection_monitor_state['monitor_active']:
-                logger.info("Connection monitor stopping")
-                break
-            current_state = connection_monitor_state['state']
-
-        # Sleep first before checking
-        time.sleep(MONITOR_INTERVAL)
-
         try:
-            # Check connection status
+            # Check if monitoring should stop (quick check with lock)
+            with monitor_state_lock:
+                if not connection_monitor_state['monitor_active']:
+                    logger.info("Connection monitor stopping")
+                    break
+                current_state = connection_monitor_state['state']
+            
+            # Check connection status outside the lock
             connected = is_connected()
 
+            # Atomically update state as needed
+            restart_ap = False
             with monitor_state_lock:
+                # Re-check state in case it changed
                 current_state = connection_monitor_state['state']
-
-            # If we were monitoring and connection dropped
-            if current_state == 'MONITORING' and not connected:
-                logger.warning("Connection drop detected! Restarting AP...")
-                with monitor_state_lock:
+                
+                # If we were monitoring and connection dropped
+                if current_state == 'MONITORING' and not connected:
+                    logger.warning("Connection drop detected! Restarting AP...")
                     connection_monitor_state['state'] = 'DISCONNECTED'
-
-                # Restart AP
-                safe_restart_ap()
-
-            # If we're connected but not in monitoring state, transition to monitoring
-            elif current_state == 'CONNECTED' and connected:
-                with monitor_state_lock:
+                    restart_ap = True
+                # If we're connected but not in monitoring state, transition to monitoring
+                elif current_state == 'CONNECTED' and connected:
                     connection_monitor_state['state'] = 'MONITORING'
-                logger.info("Connection stable, entering monitoring mode")
+                    logger.info("Connection stable, entering monitoring mode")
+
+            # Restart AP outside the lock to avoid deadlock
+            if restart_ap:
+                safe_restart_ap()
 
         except Exception as e:
             logger.error(f"Error in connection monitor loop: {str(e)}")
             # Continue monitoring despite errors
+        
+        # Wait for MONITOR_INTERVAL or until stop_event is set
+        if stop_event.wait(timeout=MONITOR_INTERVAL):
+            # Event was set, meaning we should stop
+            logger.info("Connection monitor stopping (event triggered)")
+            break
 
 
 def start_connection_monitor():
@@ -207,11 +225,14 @@ def start_connection_monitor():
             return
 
         connection_monitor_state['monitor_active'] = True
+        # Clear the stop event before starting thread
+        connection_monitor_state['stop_event'].clear()
 
-        # Create and start daemon thread
-        monitor_thread = Thread(target=connection_monitor_loop, daemon=True)
-        monitor_thread.start()
+        # Create and start non-daemon thread (let it complete)
+        monitor_thread = Thread(target=connection_monitor_loop, daemon=False)
         connection_monitor_state['monitor_thread'] = monitor_thread
+        # Start thread while holding lock to prevent race with stop
+        monitor_thread.start()
 
     logger.info("Connection monitor thread started")
 
@@ -226,6 +247,8 @@ def stop_connection_monitor():
             return
 
         connection_monitor_state['monitor_active'] = False
+        # Set the stop event to wake up the thread immediately
+        connection_monitor_state['stop_event'].set()
         monitor_thread = connection_monitor_state['monitor_thread']
 
     # Wait for thread to finish (with timeout)
@@ -264,43 +287,49 @@ def log_subprocess_output(result):
 
 
 def start_ap():
-    out = subprocess.run(
-        ["nmcli", "con", "add", "con-name", "hotspot", "ifname", "wlan0", "type", "wifi", "ssid", AP_NAME], 
-        capture_output=True, text=True
-    )
-    log_subprocess_output(out)
-    if out.returncode != 0:
-        raise RuntimeError(f"Failed to add hotspot: {out.stderr.strip() or out.stdout.strip()}")
+    try:
+        out = subprocess.run(
+            ["nmcli", "con", "add", "con-name", "hotspot", "ifname", "wlan0", "type", "wifi", "ssid", AP_NAME], 
+            capture_output=True, text=True
+        )
+        log_subprocess_output(out)
+        if out.returncode != 0:
+            raise RuntimeError(f"Failed to add hotspot: {out.stderr.strip() or out.stdout.strip()}")
 
-    out = subprocess.run(
-        ["nmcli", "con", "modify", "hotspot", "wifi-sec.key-mgmt", "wpa-psk"], 
-        capture_output=True, text=True
-    )
-    log_subprocess_output(out)
-    if out.returncode != 0:
-        raise RuntimeError(f"Failed to set key management: {out.stderr.strip() or out.stdout.strip()}")
+        out = subprocess.run(
+            ["nmcli", "con", "modify", "hotspot", "wifi-sec.key-mgmt", "wpa-psk"], 
+            capture_output=True, text=True
+        )
+        log_subprocess_output(out)
+        if out.returncode != 0:
+            raise RuntimeError(f"Failed to set key management: {out.stderr.strip() or out.stdout.strip()}")
 
-    out = subprocess.run(
-        ["nmcli", "con", "modify", "hotspot", "wifi-sec.psk", AP_PASSWORD], 
-        capture_output=True, text=True
-    )
-    log_subprocess_output(out)
-    if out.returncode != 0:
-        raise RuntimeError(f"Failed to set hotspot password: {out.stderr.strip() or out.stdout.strip()}")
+        out = subprocess.run(
+            ["nmcli", "con", "modify", "hotspot", "wifi-sec.psk", AP_PASSWORD], 
+            capture_output=True, text=True
+        )
+        log_subprocess_output(out)
+        if out.returncode != 0:
+            raise RuntimeError(f"Failed to set hotspot password: {out.stderr.strip() or out.stdout.strip()}")
 
-    out = subprocess.run(
-        ["nmcli", "con", "modify", "hotspot", "802-11-wireless.mode", "ap", "802-11-wireless.band", "bg", "ipv4.method", "shared"],
-        capture_output=True, text=True
-    )
-    log_subprocess_output(out)
-    if out.returncode != 0:
-        raise RuntimeError(f"Failed to set hotspot mode and band: {out.stderr.strip() or out.stdout.strip()}")
+        out = subprocess.run(
+            ["nmcli", "con", "modify", "hotspot", "802-11-wireless.mode", "ap", "802-11-wireless.band", "bg", "ipv4.method", "shared"],
+            capture_output=True, text=True
+        )
+        log_subprocess_output(out)
+        if out.returncode != 0:
+            raise RuntimeError(f"Failed to set hotspot mode and band: {out.stderr.strip() or out.stdout.strip()}")
 
-    # Update state to indicate AP mode is active
-    with monitor_state_lock:
-        connection_monitor_state['state'] = 'AP_MODE'
+        # Update state to indicate AP mode is active
+        with monitor_state_lock:
+            connection_monitor_state['state'] = 'AP_MODE'
 
-    logger.info(f"AP '{AP_NAME}' started successfully")
+        logger.info(f"AP '{AP_NAME}' started successfully")
+    except Exception:
+        # Update state to indicate failure
+        with monitor_state_lock:
+            connection_monitor_state['state'] = 'FAILED'
+        raise
 
 
 def stop_ap():
@@ -380,73 +409,82 @@ def background_connect(ssid, password):
     """Handle connection with retry and automatic AP fallback."""
     global connection_state, connection_monitor_state
 
-    # Update initial state
-    with connection_state_lock:
-        connection_state['in_progress'] = True
-        connection_state['ssid'] = ssid
-        connection_state['timestamp'] = time.time()
-        connection_state['success'] = None
-        connection_state['error'] = None
+    # Prevent concurrent connection attempts
+    if not connection_attempt_lock.acquire(blocking=False):
+        logger.warning("Connection attempt already in progress, ignoring new request")
+        return
 
-    with monitor_state_lock:
-        connection_monitor_state['state'] = 'CONNECTING'
-        connection_monitor_state['last_ssid'] = ssid
+    try:
+        # Update initial state
+        with connection_state_lock:
+            connection_state['in_progress'] = True
+            connection_state['ssid'] = ssid
+            connection_state['timestamp'] = time.time()
+            connection_state['success'] = None
+            connection_state['error'] = None
 
-    # Stop connection monitor during connection attempt
-    stop_connection_monitor()
+        with monitor_state_lock:
+            connection_monitor_state['state'] = 'CONNECTING'
+            connection_monitor_state['last_ssid'] = ssid
 
-    # Retry loop
-    success = False
-    last_error = None
+        # Stop connection monitor during connection attempt
+        stop_connection_monitor()
 
-    for attempt in range(CONNECTION_RETRIES + 1):
-        if attempt > 0:
-            logger.info(f"Retry attempt {attempt}/{CONNECTION_RETRIES} for {ssid}")
-            time.sleep(RETRY_DELAY)
+        # Retry loop
+        success = False
+        last_error = None
 
-        # Attempt connection
-        success, stdout, stderr = connect_to_network(ssid, password)
-        last_error = stderr.strip() if not success else None
+        for attempt in range(CONNECTION_RETRIES + 1):
+            if attempt > 0:
+                logger.info(f"Retry attempt {attempt}/{CONNECTION_RETRIES} for {ssid}")
+                time.sleep(RETRY_DELAY)
+
+            # Attempt connection
+            success, stdout, stderr = connect_to_network(ssid, password)
+            last_error = stderr.strip() if not success else None
+
+            if success:
+                # Wait for connection to stabilize
+                time.sleep(CONNECTION_WAIT_TIME)
+
+                # Verify connection
+                if is_connected():
+                    logger.info(f"Successfully connected to {ssid}")
+                    break
+                else:
+                    success = False
+                    last_error = "Connection established but verification failed"
+            else:
+                logger.warning(f"Connection attempt failed: {last_error}")
+
+        # Update state based on final result
+        with connection_state_lock:
+            connection_state['in_progress'] = False
+            connection_state['success'] = success
+            connection_state['error'] = last_error
 
         if success:
-            # Wait for connection to stabilize
-            time.sleep(CONNECTION_WAIT_TIME)
+            # Start monitoring for connection drops
+            with monitor_state_lock:
+                connection_monitor_state['state'] = 'CONNECTED'
+                # Reset backoff on successful connection
+                connection_monitor_state['restart_history'].clear()
+                connection_monitor_state['current_backoff'] = 0
 
-            # Verify connection
-            if is_connected():
-                logger.info(f"Successfully connected to {ssid}")
-                break
-            else:
-                success = False
-                last_error = "Connection established but verification failed"
+            start_connection_monitor()
+            logger.info("Connection monitor started")
         else:
-            logger.warning(f"Connection attempt failed: {last_error}")
+            # Connection failed after all retries - restart AP
+            logger.error(f"All connection attempts failed for {ssid}. Restarting AP mode.")
+            with monitor_state_lock:
+                connection_monitor_state['state'] = 'FAILED'
 
-    # Update state based on final result
-    with connection_state_lock:
-        connection_state['in_progress'] = False
-        connection_state['success'] = success
-        connection_state['error'] = last_error
-
-    if success:
-        # Start monitoring for connection drops
-        with monitor_state_lock:
-            connection_monitor_state['state'] = 'CONNECTED'
-            # Reset backoff on successful connection
-            connection_monitor_state['restart_history'].clear()
-            connection_monitor_state['current_backoff'] = 0
-
-        start_connection_monitor()
-        logger.info("Connection monitor started")
-    else:
-        # Connection failed after all retries - restart AP
-        logger.error(f"All connection attempts failed for {ssid}. Restarting AP mode.")
-        with monitor_state_lock:
-            connection_monitor_state['state'] = 'FAILED'
-
-        # Restart AP after brief delay
-        time.sleep(2)
-        safe_restart_ap()
+            # Restart AP after brief delay
+            time.sleep(2)
+            safe_restart_ap()
+    finally:
+        # Always release the lock
+        connection_attempt_lock.release()
 
 @app.route("/check_status")
 def check_status():
@@ -464,7 +502,7 @@ def check_status():
         'in_progress': conn_state['in_progress'],
         'ssid': conn_state['ssid'],
         'success': conn_state['success'],
-        'error': conn_state['error'],
+        'error': sanitize_output(conn_state['error']) if conn_state['error'] else None,
         'state': mon_state['state'],
         'ap_mode': mon_state['state'] == 'AP_MODE',
         'monitoring': mon_state['monitor_active'],
