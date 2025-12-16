@@ -59,7 +59,7 @@ Edit the `.env` file to set your desired values.
 ### Circuit Breaker Configuration
 *   `MAX_RESTARTS_PER_WINDOW`: Maximum AP restarts allowed within time window (default: 3)
 *   `RESTART_WINDOW`: Time window for counting restarts in seconds (default: 300 = 5 minutes)
-*   `BACKOFF_MULTIPLIER`: Exponential backoff multiplier (default: 6, creates sequence: 5s → 30s → 3min)
+*   `BACKOFF_BASE`: Exponential backoff base (default: 6, creates sequence: 5s → 30s → 3min)
 
 ## Running the Application
 
