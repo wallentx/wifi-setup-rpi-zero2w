@@ -107,14 +107,15 @@ def record_ap_restart():
         )
 
 
+def attempt_ap_restart():
+    """Helper to perform the actual AP restart."""
+    stop_ap()
+    start_ap()
+
+
 def safe_restart_ap():
     """Safely restart AP with circuit breaker protection."""
     global connection_monitor_state
-
-    def attempt_ap_restart():
-        """Helper to perform the actual AP restart."""
-        stop_ap()
-        start_ap()
 
     try:
         # Record the restart before calculating backoff
@@ -127,12 +128,6 @@ def safe_restart_ap():
         if backoff > 0:
             logger.info(f"Applying circuit breaker backoff: waiting {backoff}s before restarting AP")
             time.sleep(backoff)
-            
-            # Re-check state after sleep to avoid race condition
-            with monitor_state_lock:
-                new_backoff = connection_monitor_state['current_backoff']
-                if new_backoff != backoff:
-                    logger.info(f"Backoff changed during wait (was {backoff}s, now {new_backoff}s), continuing with restart")
 
         logger.info("Restarting Access Point...")
         attempt_ap_restart()
@@ -170,6 +165,9 @@ def connection_monitor_loop():
     global connection_monitor_state
 
     logger.info("Connection monitor started")
+    
+    # Get reference to stop event (it's never reassigned)
+    stop_event = connection_monitor_state['stop_event']
 
     while True:
         try:
@@ -206,10 +204,6 @@ def connection_monitor_loop():
         except Exception as e:
             logger.error(f"Error in connection monitor loop: {str(e)}")
             # Continue monitoring despite errors
-
-        # Sleep with Event for immediate wake-up capability
-        with monitor_state_lock:
-            stop_event = connection_monitor_state['stop_event']
         
         # Wait for MONITOR_INTERVAL or until stop_event is set
         if stop_event.wait(timeout=MONITOR_INTERVAL):
