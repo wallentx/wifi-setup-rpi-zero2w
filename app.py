@@ -166,8 +166,10 @@ def connection_monitor_loop():
 
     logger.info("Connection monitor started")
     
-    # Get reference to stop event (it's never reassigned)
-    stop_event = connection_monitor_state['stop_event']
+    # Get reference to stop event for efficient access
+    # Note: While the Event object reference doesn't change, its state (set/clear) does
+    with monitor_state_lock:
+        stop_event = connection_monitor_state['stop_event']
 
     while True:
         try:
@@ -223,13 +225,14 @@ def start_connection_monitor():
             return
 
         connection_monitor_state['monitor_active'] = True
-        # Clear the stop event
+        # Clear the stop event before starting thread
         connection_monitor_state['stop_event'].clear()
 
         # Create and start non-daemon thread (let it complete)
         monitor_thread = Thread(target=connection_monitor_loop, daemon=False)
-        monitor_thread.start()
         connection_monitor_state['monitor_thread'] = monitor_thread
+        # Start thread while holding lock to prevent race with stop
+        monitor_thread.start()
 
     logger.info("Connection monitor thread started")
 
