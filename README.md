@@ -2,6 +2,16 @@
 
 This is a simple web-based interface that allows you to connect your Raspberry Pi to a Wi-Fi network. It checks if the Pi is connected to a network (via Wi-Fi or Ethernet) and if not, shows a portal to select a Wi-Fi network and enter the password.
 
+## Features
+
+- **Automatic AP Mode**: Creates a WiFi access point when no connection is available
+- **Web-based Configuration**: Simple interface to select and connect to WiFi networks
+- **Automatic Retry**: Retries connection attempts before falling back to AP mode
+- **Connection Monitoring**: Continuously monitors connection health in the background
+- **Automatic Fallback**: If connection drops, automatically restarts AP mode
+- **Circuit Breaker Protection**: Prevents rapid restart loops with exponential backoff
+- **Dual Network Support**: Respects both WiFi and Ethernet connections
+
 ## Prerequisites
 
 Make sure you have the following installed on your Raspberry Pi:
@@ -35,9 +45,21 @@ nano .env
 ```
 
 Edit the `.env` file to set your desired values.
+
+### Basic Configuration
 *   `AP_NAME`: Hotspot SSID (default: "piratos")
-*   `AP_PASSWORD`: Hotspot password (default: "raspberry")
+*   `AP_PASSWORD`: Hotspot password (default: "raspberry") - **IMPORTANT**: Change this before deployment!
 *   `CONNECTION_WAIT_TIME`: Time in seconds to wait for connection verification (default: 10)
+
+### Connection Monitoring & Retry
+*   `MONITOR_INTERVAL`: Seconds between connection health checks (default: 30)
+*   `CONNECTION_RETRIES`: Number of retry attempts before falling back to AP (default: 1)
+*   `RETRY_DELAY`: Seconds to wait between retry attempts (default: 5)
+
+### Circuit Breaker Configuration
+*   `MAX_RESTARTS_PER_WINDOW`: Maximum AP restarts allowed within time window (default: 3)
+*   `RESTART_WINDOW`: Time window for counting restarts in seconds (default: 300 = 5 minutes)
+*   `BACKOFF_MULTIPLIER`: Exponential backoff multiplier (default: 6, creates sequence: 5s → 30s → 3min)
 
 ## Running the Application
 
@@ -110,11 +132,59 @@ sudo systemctl enable wifi-setup.service
 sudo systemctl start wifi-setup.service
 ```
 
+## How It Works
+
+### Initial Startup
+- On startup, the application checks if the device is connected (WiFi or Ethernet)
+- If not connected: Starts AP mode automatically
+- If connected: Starts connection monitoring in the background
+
+### Connection Flow
+1. User connects to the AP and navigates to the web portal
+2. User selects a WiFi network and enters credentials
+3. AP shuts down and connection attempt begins
+4. If connection succeeds: Monitoring starts, AP stays off
+5. If connection fails: Retries once (configurable), then restarts AP
+
+### Connection Monitoring
+- A background thread checks connection health every 30 seconds (configurable)
+- If connection drops: Automatically restarts AP mode
+- If multiple rapid failures occur: Circuit breaker applies exponential backoff
+
+### Circuit Breaker
+- Prevents excessive restart loops that could drain battery or cause system instability
+- Default: After 3 restarts in 5 minutes, applies increasing delays (5s → 30s → 3min)
+- Resets after successful connection lasting 10+ minutes
+
 ## API Endpoints
 
 *   `GET /`: Main portal interface (lists networks).
 *   `POST /`: Submits network credentials.
-*   `GET /check_status`: JSON endpoint returning current connection status, used by the frontend for polling.
+*   `GET /check_status`: JSON endpoint returning current connection status and monitoring state.
+    - Returns: `connected`, `in_progress`, `ssid`, `success`, `error`, `state`, `ap_mode`, `monitoring`, `last_ssid`, `restart_backoff`
+
+## Troubleshooting
+
+### Connection Fails Immediately
+- Check that the WiFi network is in range and accessible
+- Verify the password is correct (8-63 ASCII characters required)
+- Check logs: `sudo journalctl -u wifi_manager.service -f` (if using systemd)
+
+### AP Doesn't Restart After Connection Failure
+- This feature requires the updated code with automatic fallback
+- Check that the application started successfully: `sudo systemctl status wifi_manager`
+- Verify monitoring is active by checking logs for "Connection monitor started"
+
+### Circuit Breaker Engaged (Long Delays)
+- If you see "Applying circuit breaker backoff" in logs, the system detected repeated failures
+- This is normal behavior to prevent restart loops
+- Wait for the backoff period, or restart the service to reset: `sudo systemctl restart wifi_manager`
+- Consider increasing `CONNECTION_WAIT_TIME` if your network is slow to establish connections
+
+### Connection Monitor Not Working
+- Ensure the application has permissions to run `iwgetid` and `ip` commands
+- Check that NetworkManager is installed and running: `sudo systemctl status NetworkManager`
+- Verify `MONITOR_INTERVAL` is set to a reasonable value (default: 30 seconds)
 
 ## Notes
 *   The portal checks for both Wi-Fi and Ethernet (`eth0`) connections. If either is active, it reports as "Connected".
