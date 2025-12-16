@@ -335,18 +335,18 @@ def start_ap():
 def stop_ap():
     """Stop the access point if it exists."""
     result = subprocess.run(
-        ["nmcli", "con", "show"],
+        ["nmcli", "-t", "-f", "NAME", "con", "show"],
         stdout=subprocess.PIPE,
         text=True
     )
 
-    if "hotspot" in result.stdout:
+    connection_names = [line.strip() for line in result.stdout.splitlines()]
+    if "hotspot" in connection_names:
         logger.info("Stopping existing AP")
         subprocess.run(["nmcli", "con", "down", "hotspot"], stderr=subprocess.DEVNULL)
         subprocess.run(["nmcli", "con", "delete", "hotspot"], stderr=subprocess.DEVNULL)
     else:
         logger.debug("No AP to stop")
-
 def get_available_networks():
     result = subprocess.run(["nmcli", "-t", "-f", "SSID", "dev", "wifi"], stdout=subprocess.PIPE)
     networks = result.stdout.decode().split("\n")
