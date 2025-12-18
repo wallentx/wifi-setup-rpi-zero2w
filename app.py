@@ -427,24 +427,13 @@ def manual_connect_task(ssid, password):
             connection_state["success"] = success
             connection_state["error"] = last_error
 
-        # If failed, we don't manually restart AP here.
-        # We let the connection_manager pick up the failure.
-        # It will see !in_progress and !is_connected, and enter the Reconnect Phase.
-        # BUT, for better UX, if the user is sitting at the browser, they might lose access immediately if AP is down.
-        # The user's request came via AP. If we stop AP and fail to connect, they are disconnected.
-        # The manager will eventually restart AP, but it might take RECONNECT_WINDOW.
-        # That might be too long for a user waiting on a generic "Connecting..." page.
-        # So, on failure, we might want to signal "urgent AP restart" or just let manager handle it.
-        # Given the requirements, let's let the manager handle it. The user will have to wait for the AP to come back.
-        # Alternatively, we could force AP restart immediately on failure to give feedback?
-        # Let's stick to the cycle. If they put in wrong password, the AP goes down, tries to connect, fails.
-        # Then it waits RECONNECT_WINDOW (2 mins). That's annoying for a typo.
+        # On failure, we do not restart the AP here. The connection_manager loop is responsible
+        # for AP lifecycle and will detect !in_progress and !is_connected, then restart the AP
+        # after the configured RECONNECT_WINDOW. This keeps all AP state changes in one place,
+        # at the cost of a possible wait (e.g., up to 2 minutes) if credentials were invalid.
 
         if not success:
             logger.info("Manual connection failed. Connection manager will cycle.")
-            # Optimization: Force manager to skip the Reconnect Window and go straight to AP?
-            # Or just rely on the loop. 2 mins is long for a typo.
-            # Let's trust the loop for now to be robust.
 
     finally:
         connection_attempt_lock.release()
