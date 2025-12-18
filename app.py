@@ -343,7 +343,7 @@ def connection_manager():
         try:
             start_ap()
         except Exception:
-            logger.error("Failed to start AP. Will retry cycle.")
+            logger.exception("Failed to start AP. Will retry cycle.")
             time.sleep(30)
             continue
 
