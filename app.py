@@ -318,7 +318,7 @@ def connection_manager():
                 connected_during_wait = True
                 break
 
-            time.sleep(5)
+            time.sleep(MONITOR_INTERVAL)
 
         if connected_during_wait:
             continue
