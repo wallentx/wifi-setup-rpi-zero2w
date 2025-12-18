@@ -135,17 +135,17 @@ sudo systemctl start wifi-setup.service
 2. User selects a WiFi network and enters credentials
 3. AP shuts down and connection attempt begins
 4. If connection succeeds: Monitoring starts, AP stays off
-5. If connection fails: Retries once (configurable), then restarts AP
+5. If connection fails: AP restarts immediately (no retry delay for manual attempts)
 
 ### Connection Monitoring and Automatic Fallback
 The application includes a background connection manager that monitors the network connection and automatically falls back to AP mode if the connection is lost:
 
 1. **Monitoring Phase**: Checks connection health every 60 seconds
-2. **Reconnection Window**: If disconnected, waits for 2 minutes (configurable via `RECONNECT_WINDOW`), checking for automatic reconnection every 5 seconds
+2. **Reconnection Window**: If disconnected automatically (not due to manual connection failure), waits for 2 minutes (configurable via `RECONNECT_WINDOW`), checking for automatic reconnection every 5 seconds
 3. **AP Fallback**: If reconnection fails, automatically starts the AP for 15 minutes (configurable via `AP_DURATION`)
 4. **Cycle Repeats**: After AP duration expires, the manager attempts to reconnect again
 
-This ensures the device remains accessible for reconfiguration even if the WiFi network becomes unavailable.
+**Note**: When a manual connection attempt fails (user-initiated via the UI), the AP is restarted immediately without the reconnection window wait to allow the user to retry quickly.
 
 ## API Endpoints
 

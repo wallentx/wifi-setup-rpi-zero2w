@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Check if uv is installed
+if ! command -v uv &> /dev/null; then
+    echo "Error: 'uv' is not installed or not in PATH."
+    echo "Please install uv first: https://docs.astral.sh/uv/getting-started/installation/"
+    exit 1
+fi
+
 # Default behavior
 FIX=false
 
