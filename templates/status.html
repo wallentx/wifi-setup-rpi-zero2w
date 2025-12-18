@@ -32,6 +32,8 @@
                         stateInfo = 'Connection monitor active.';
                     } else if (data.state === 'CONNECTING') {
                         stateInfo = 'Attempting to connect...';
+                    } else {
+                        stateInfo = '';
                     }
                     document.getElementById('state-info').textContent = stateInfo;
 
