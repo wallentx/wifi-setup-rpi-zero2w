@@ -371,7 +371,6 @@ def connection_manager():
 
 def manual_connect_task(ssid, password):
     """Task run by the web request thread to connect."""
-    global connection_state
 
     # Signal manager to wake up and see 'in_progress'
     manager_wake_event.set()
