@@ -386,6 +386,12 @@ def manual_connect_task(ssid, password):
     # Prevent concurrent connection attempts
     if not connection_attempt_lock.acquire(blocking=False):
         logger.warning("Connection attempt already in progress, ignoring new request")
+        # Update state so the UI can show an appropriate error for this request
+        with connection_state_lock:
+            connection_state["in_progress"] = False
+            connection_state["success"] = False
+            connection_state["error"] = "Another connection attempt is already in progress"
+            connection_state["timestamp"] = time.time()
         return
 
     try:
