@@ -336,8 +336,8 @@ def connection_manager():
 
             with connection_state_lock:
                 if connection_state["in_progress"]:
-                    # User took action via UI. The connect_to_network function will stop the AP.
-                    # We exit this AP wait loop so the manager can proceed with the connection attempt.
+                    # User submitted WiFi credentials via UI. The connect_to_network function will stop the AP.
+                    # We exit this AP wait loop so the manager can proceed with the WiFi connection attempt.
                     logger.info("User initiated connection. Exiting AP wait loop.")
                     break
 
