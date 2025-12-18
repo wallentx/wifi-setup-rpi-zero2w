@@ -142,7 +142,7 @@ sudo systemctl start wifi-setup.service
 The application includes a background connection manager that monitors the network connection and automatically falls back to AP mode if the connection is lost:
 
 1. **Monitoring Phase**: Checks connection health every 60 seconds
-2. **Reconnection Window**: If disconnected, waits for 2 minutes (configurable via `RECONNECT_WINDOW`) attempting to reconnect every 5 seconds
+2. **Reconnection Window**: If disconnected, waits for 2 minutes (configurable via `RECONNECT_WINDOW`), checking for automatic reconnection every 5 seconds
 3. **AP Fallback**: If reconnection fails, automatically starts the AP for 15 minutes (configurable via `AP_DURATION`)
 4. **Cycle Repeats**: After AP duration expires, the manager attempts to reconnect again
 
