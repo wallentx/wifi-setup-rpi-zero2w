@@ -53,6 +53,7 @@ connection_state = {
     "timestamp": None,
     "success": None,
     "error": None,
+    "manual_failure": False,  # Flag to indicate recent manual connection failure
 }
 connection_state_lock = Lock()
 connection_attempt_lock = Lock()  # Prevent concurrent connection attempts
@@ -285,96 +286,109 @@ def connection_manager():
     logger.info("Connection manager started")
 
     while not manager_stop_event.is_set():
-        # 1. Check if user is actively trying to connect via UI
-        with connection_state_lock:
-            in_progress = connection_state["in_progress"]
-
-        if in_progress:
-            # User is attempting connection, don't interfere.
-            time.sleep(2)
-            continue
-
-        # 2. Check current connection status
-        if is_connected():
-            logger.debug("Device is connected. Monitoring...")
-            # Sleep for 60s, but wakeable if user starts an action
-            manager_wake_event.wait(timeout=60)
-            manager_wake_event.clear()
-            continue
-
-        # 3. Disconnected: Attempt Reconnect Phase
-        logger.info("Device disconnected. Entering reconnection phase.")
-        stop_ap()
-
-        # Trigger a rescan to help NetworkManager find networks
-        subprocess.run(["nmcli", "dev", "wifi", "rescan"], stderr=subprocess.DEVNULL)
-
-        # Wait for reconnection (RECONNECT_WINDOW)
-        # Check frequently to see if we connected or if user took action
-        start_wait = time.time()
-        connected_during_wait = False
-
-        while time.time() - start_wait < RECONNECT_WINDOW:
-            if manager_stop_event.is_set():
-                return
-
+        try:
+            # 1. Check if user is actively trying to connect via UI
             with connection_state_lock:
-                if connection_state["in_progress"]:
-                    # User took action, break out of wait loop to top
-                    break
+                in_progress = connection_state["in_progress"]
 
-            if is_connected():
-                logger.info("Reconnected successfully during wait window!")
-                connected_during_wait = True
-                break
-
-            time.sleep(MONITOR_INTERVAL)
-
-        if connected_during_wait:
-            continue
-
-        # If we broke because of user action, loop back to top
-        with connection_state_lock:
-            if connection_state["in_progress"]:
+            if in_progress:
+                # User is attempting connection, don't interfere.
+                time.sleep(2)
                 continue
 
-        # 4. Reconnection Failed: AP Phase
-        logger.info(f"Reconnection failed. Starting AP for {AP_DURATION} seconds.")
-        try:
-            start_ap()
-        except Exception:
-            logger.exception("Failed to start AP. Will retry cycle.")
-            time.sleep(30)
-            continue
+            # 2. Check current connection status
+            if is_connected():
+                logger.debug("Device is connected. Monitoring...")
+                # Sleep for 60s, but wakeable if user starts an action
+                manager_wake_event.wait(timeout=60)
+                manager_wake_event.clear()
+                continue
 
-        # Wait for AP_DURATION
-        # Check frequently for user action or magical connection (e.g. ethernet)
-        start_ap_time = time.time()
-        while time.time() - start_ap_time < AP_DURATION:
-            if manager_stop_event.is_set():
-                stop_ap()
-                return
+            # 3. Disconnected: Attempt Reconnect Phase
+            logger.info("Device disconnected. Entering reconnection phase.")
+            stop_ap()
 
+            # Check if this is due to a recent manual connection failure
+            # If so, skip the reconnect window and go straight to AP mode
             with connection_state_lock:
-                if connection_state["in_progress"]:
-                    # User submitted WiFi credentials via UI. The connect_to_network function will stop the AP.
-                    # We exit this AP wait loop so the manager can proceed with the WiFi connection attempt.
-                    logger.info("User initiated connection. Exiting AP wait loop.")
+                skip_reconnect = connection_state["manual_failure"]
+                if skip_reconnect:
+                    connection_state["manual_failure"] = False
+                    logger.info("Manual connection failed. Skipping reconnect window, starting AP immediately.")
+
+            if not skip_reconnect:
+                # Trigger a rescan to help NetworkManager find networks
+                subprocess.run(["nmcli", "dev", "wifi", "rescan"], stderr=subprocess.DEVNULL)
+
+                # Wait for reconnection (RECONNECT_WINDOW)
+                # Check frequently to see if we connected or if user took action
+                start_wait = time.time()
+                connected_during_wait = False
+
+                while time.time() - start_wait < RECONNECT_WINDOW:
+                    if manager_stop_event.is_set():
+                        return
+
+                    with connection_state_lock:
+                        if connection_state["in_progress"]:
+                            # User took action, break out of wait loop to top
+                            break
+
+                    if is_connected():
+                        logger.info("Reconnected successfully during wait window!")
+                        connected_during_wait = True
+                        break
+
+                    time.sleep(5)
+
+                if connected_during_wait:
+                    continue
+
+                # If we broke because of user action, loop back to top
+                with connection_state_lock:
+                    if connection_state["in_progress"]:
+                        continue
+
+            # 4. Reconnection Failed: AP Phase
+            logger.info(f"Reconnection failed. Starting AP for {AP_DURATION} seconds.")
+            try:
+                start_ap()
+            except Exception:
+                logger.exception("Failed to start AP. Will retry cycle.")
+                time.sleep(30)
+                continue
+
+            # Wait for AP_DURATION
+            # Check frequently for user action or magical connection (e.g. ethernet)
+            start_ap_time = time.time()
+            while time.time() - start_ap_time < AP_DURATION:
+                if manager_stop_event.is_set():
+                    stop_ap()
+                    return
+
+                with connection_state_lock:
+                    if connection_state["in_progress"]:
+                        # User submitted WiFi credentials via UI. The connect_to_network function will stop the AP.
+                        # We exit this AP wait loop so the manager can proceed with the WiFi connection attempt.
+                        logger.info("User initiated connection. Exiting AP wait loop.")
+                        break
+
+                # If ethernet is plugged in, we might be connected even with AP up
+                # (though unlikely to route correctly without bridge, but `is_connected` checks eth0)
+                if is_connected():
+                    logger.info("Connection detected (possibly Ethernet). Stopping AP.")
+                    stop_ap()
                     break
 
-            # If ethernet is plugged in, we might be connected even with AP up
-            # (though unlikely to route correctly without bridge, but `is_connected` checks eth0)
-            if is_connected():
-                logger.info("Connection detected (possibly Ethernet). Stopping AP.")
-                stop_ap()
-                break
+                time.sleep(5)
 
-            time.sleep(5)
-
-        # 5. End of AP Phase
-        # Loop will restart, which checks connection (likely false),
-        # then calls stop_ap() (redundant but safe), then enters Reconnect Window.
-        logger.info("AP Phase ended. Cycling back to reconnection phase.")
+            # 5. End of AP Phase
+            # Loop will restart, which checks connection (likely false),
+            # then calls stop_ap() (redundant but safe), then enters Reconnect Window.
+            logger.info("AP Phase ended. Cycling back to reconnection phase.")
+        except Exception:
+            logger.exception("Unexpected error in connection_manager loop. Will retry after 30s.")
+            time.sleep(30)
 
 
 def manual_connect_task(ssid, password):
@@ -426,14 +440,11 @@ def manual_connect_task(ssid, password):
             connection_state["in_progress"] = False
             connection_state["success"] = success
             connection_state["error"] = last_error
-
-        # On failure, we do not restart the AP here. The connection_manager loop is responsible
-        # for AP lifecycle and will detect !in_progress and !is_connected, then restart the AP
-        # after the configured RECONNECT_WINDOW. This keeps all AP state changes in one place,
-        # at the cost of a possible wait (e.g., up to 2 minutes) if credentials were invalid.
+            # Set manual_failure flag so connection_manager skips reconnect window
+            connection_state["manual_failure"] = not success
 
         if not success:
-            logger.info("Manual connection failed. Connection manager will cycle.")
+            logger.info("Manual connection failed. Connection manager will restart AP immediately.")
 
     finally:
         connection_attempt_lock.release()
