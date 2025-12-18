@@ -9,7 +9,6 @@ This is a simple web-based interface that allows you to connect your Raspberry P
 - **Automatic Retry**: Retries connection attempts before falling back to AP mode
 - **Connection Monitoring**: Continuously monitors connection health in the background
 - **Automatic Fallback**: If connection drops, automatically restarts AP mode
-- **Circuit Breaker Protection**: Prevents rapid restart loops with exponential backoff
 - **Dual Network Support**: Respects both WiFi and Ethernet connections
 
 ## Prerequisites
