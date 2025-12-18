@@ -19,11 +19,13 @@ CONNECTION_WAIT_TIME = int(
     os.environ.get("CONNECTION_WAIT_TIME", "10")
 )  # Seconds to wait for connection to establish (configurable via env)
 
-# Timing constants
-AP_DURATION = int(os.environ.get("AP_DURATION", "900"))  # 15 minutes in seconds
-RECONNECT_WINDOW = int(
-    os.environ.get("RECONNECT_WINDOW", "120")
-)  # 2 minutes to try connecting
+# Timing constants (configurable via environment variables / .env)
+# AP_DURATION: total time (in seconds) to keep the access point active before shutting it down.
+#              Default is 900 seconds (15 minutes) if AP_DURATION is not set in the environment.
+AP_DURATION = int(os.environ.get("AP_DURATION", "900"))
+# RECONNECT_WINDOW: time window (in seconds) to keep trying to connect to the target WiFi network
+#                   after credentials are submitted. Default is 120 seconds (2 minutes).
+RECONNECT_WINDOW = int(os.environ.get("RECONNECT_WINDOW", "120"))
 
 # Store connection attempt state
 connection_state = {
