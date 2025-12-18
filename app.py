@@ -189,17 +189,6 @@ def start_ap():
             raise RuntimeError(
                 f"Failed to bring up hotspot: {out.stderr.strip() or out.stdout.strip()}"
             )
-        # Bring up the configured hotspot connection so the AP actually starts broadcasting
-        out = subprocess.run(
-            ["nmcli", "con", "up", "hotspot", "ifname", "wlan0"],
-            capture_output=True,
-            text=True,
-        )
-        log_subprocess_output(out)
-        if out.returncode != 0:
-            raise RuntimeError(
-                f"Failed to bring up hotspot: {out.stderr.strip() or out.stdout.strip()}"
-            )
 
         logger.info(f"AP '{AP_NAME}' started successfully")
     except Exception as e:
