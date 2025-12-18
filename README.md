@@ -46,20 +46,12 @@ nano .env
 
 Edit the `.env` file to set your desired values.
 
-### Basic Configuration
+### Configuration Options
 *   `AP_NAME`: Hotspot SSID (default: "piratos")
 *   `AP_PASSWORD`: Hotspot password (default: "raspberry") - **IMPORTANT**: Change this before deployment!
 *   `CONNECTION_WAIT_TIME`: Time in seconds to wait for connection verification (default: 10)
-
-### Connection Monitoring & Retry
-*   `MONITOR_INTERVAL`: Seconds between connection health checks (default: 30)
-*   `CONNECTION_RETRIES`: Number of retry attempts before falling back to AP (default: 1)
-*   `RETRY_DELAY`: Seconds to wait between retry attempts (default: 5)
-
-### Circuit Breaker Configuration
-*   `MAX_RESTARTS_PER_WINDOW`: Maximum AP restarts allowed within time window (default: 3)
-*   `RESTART_WINDOW`: Time window for counting restarts in seconds (default: 300 = 5 minutes)
-*   `BACKOFF_BASE`: Exponential backoff base (default: 6, creates sequence: 5s → 30s → 3min)
+*   `AP_DURATION`: Total time (in seconds) to keep the access point active before shutting it down (default: 900 = 15 minutes)
+*   `RECONNECT_WINDOW`: Time window (in seconds) to keep trying to reconnect to the target WiFi network after connection is lost (default: 120 = 2 minutes)
 
 ## Running the Application
 
@@ -146,23 +138,22 @@ sudo systemctl start wifi-setup.service
 4. If connection succeeds: Monitoring starts, AP stays off
 5. If connection fails: Retries once (configurable), then restarts AP
 
-### Connection Monitoring
-- A background thread checks connection health every 30 seconds (configurable)
-- If connection drops: Automatically restarts AP mode
-- If multiple rapid failures occur: Circuit breaker applies exponential backoff
+### Connection Monitoring and Automatic Fallback
+The application includes a background connection manager that monitors the network connection and automatically falls back to AP mode if the connection is lost:
 
-### Circuit Breaker
-- Prevents excessive restart loops that could drain battery or cause system instability
-- Default: After 3 restarts in 5 minutes, applies exponential backoff delays: 30s → 180s (3min) → 1080s (18min) → capped at 1 hour
-- **Warning:** The exponential backoff grows rapidly. After each failure beyond the restart threshold, the delay increases exponentially and is capped at 1 hour maximum to ensure the AP eventually restarts. Restart the service to reset the backoff.
-- Resets immediately upon successful connection (restart history also expires after 5 minutes)
+1. **Monitoring Phase**: Checks connection health every 60 seconds
+2. **Reconnection Window**: If disconnected, waits for 2 minutes (configurable via `RECONNECT_WINDOW`) attempting to reconnect every 5 seconds
+3. **AP Fallback**: If reconnection fails, automatically starts the AP for 15 minutes (configurable via `AP_DURATION`)
+4. **Cycle Repeats**: After AP duration expires, the manager attempts to reconnect again
+
+This ensures the device remains accessible for reconfiguration even if the WiFi network becomes unavailable.
 
 ## API Endpoints
 
 *   `GET /`: Main portal interface (lists networks).
 *   `POST /`: Submits network credentials.
-*   `GET /check_status`: JSON endpoint returning current connection status and monitoring state.
-    - Returns: `connected`, `in_progress`, `ssid`, `success`, `error`, `state`, `ap_mode`, `monitoring`, `last_ssid`, `restart_backoff`
+*   `GET /check_status`: JSON endpoint returning current connection status.
+    - Returns: `connected`, `in_progress`, `ssid`, `success`, `error`
 
 ## Troubleshooting
 
@@ -172,20 +163,13 @@ sudo systemctl start wifi-setup.service
 - Check logs: `sudo journalctl -u wifi_manager.service -f` (if using systemd)
 
 ### AP Doesn't Restart After Connection Failure
-- This feature requires the updated code with automatic fallback
 - Check that the application started successfully: `sudo systemctl status wifi_manager`
-- Verify monitoring is active by checking logs for "Connection monitor started"
+- Verify the connection manager thread is running by checking logs for "Connection manager started"
+- The manager waits 2 minutes (RECONNECT_WINDOW) before restarting AP mode
 
-### Circuit Breaker Engaged (Long Delays)
-- If you see "Applying circuit breaker backoff" in logs, the system detected repeated failures
-- This is normal behavior to prevent restart loops
-- Wait for the backoff period, or restart the service to reset: `sudo systemctl restart wifi_manager`
-- Consider increasing `CONNECTION_WAIT_TIME` if your network is slow to establish connections
-
-### Connection Monitor Not Working
+### Connection Manager Not Working
 - Ensure the application has permissions to run `iwgetid` and `ip` commands
 - Check that NetworkManager is installed and running: `sudo systemctl status NetworkManager`
-- Verify `MONITOR_INTERVAL` is set to a reasonable value (default: 30 seconds)
 
 ## Notes
 *   The portal checks for both Wi-Fi and Ethernet (`eth0`) connections. If either is active, it reports as "Connected".

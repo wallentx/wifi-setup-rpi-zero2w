@@ -157,6 +157,18 @@ def start_ap():
                 f"Failed to set hotspot mode and band: {out.stderr.strip() or out.stdout.strip()}"
             )
 
+        # Bring up the configured hotspot connection so the AP actually starts broadcasting
+        out = subprocess.run(
+            ["nmcli", "con", "up", "hotspot", "ifname", "wlan0"],
+            capture_output=True,
+            text=True,
+        )
+        log_subprocess_output(out)
+        if out.returncode != 0:
+            raise RuntimeError(
+                f"Failed to bring up hotspot: {out.stderr.strip() or out.stdout.strip()}"
+            )
+
         logger.info(f"AP '{AP_NAME}' started successfully")
     except Exception as e:
         logger.error(f"Failed to start AP: {e}")
@@ -186,22 +198,6 @@ def get_available_networks():
     )
     networks = result.stdout.decode().split("\n")
     return [net for net in networks if net]
-
-
-def check_and_remove_hotspot():
-    """Check for existing hotspot connections and remove them if found."""
-    result = subprocess.run(["nmcli", "con", "show"], stdout=subprocess.PIPE, text=True)
-    connections = result.stdout.splitlines()
-
-    for connection in connections:
-        if "hotspot" in connection:
-            subprocess.run(
-                ["nmcli", "con", "down", "hotspot"], stderr=subprocess.DEVNULL
-            )
-            subprocess.run(
-                ["nmcli", "con", "delete", "hotspot"], stderr=subprocess.DEVNULL
-            )
-            logger.info(f"Removed hotspot connection: {connection}")
 
 
 def validate_network_input(ssid, password):
@@ -242,7 +238,6 @@ def connect_to_network(ssid, password):
     This is a known limitation of using nmcli in this manner. For production use, consider
     using nmcli's connection profile approach or stdin input for better security.
     """
-    check_and_remove_hotspot()
     stop_ap()
     result = subprocess.run(
         ["nmcli", "dev", "wifi", "connect", ssid, "password", password],
@@ -341,8 +336,8 @@ def connection_manager():
 
             with connection_state_lock:
                 if connection_state["in_progress"]:
-                    # User took action via UI. The UI handler stops AP.
-                    # We just need to stop this loop and go back to monitoring.
+                    # User took action via UI. The connect_to_network function will stop the AP.
+                    # We exit this AP wait loop so the manager can proceed with the connection attempt.
                     logger.info("User initiated connection. Exiting AP wait loop.")
                     break
 

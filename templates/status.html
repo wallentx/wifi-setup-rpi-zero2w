@@ -24,38 +24,19 @@
             fetch('/check_status')
                 .then(response => response.json())
                 .then(data => {
-                    // Update state info
-                    let stateInfo = '';
-                    if (data.ap_mode) {
-                        stateInfo = 'AP Mode active. Connect to the access point to configure.';
-                    } else if (data.monitoring) {
-                        stateInfo = 'Connection monitor active.';
-                    } else if (data.state === 'CONNECTING') {
-                        stateInfo = 'Attempting to connect...';
-                    } else {
-                        stateInfo = '';
-                    }
-                    document.getElementById('state-info').textContent = stateInfo;
-
                     if (data.in_progress) {
                         // Still connecting, check again
                         pollCount++;
                         setTimeout(checkStatus, POLL_INTERVAL_MS);
                     } else if (data.connected) {
                         // Successfully connected
-                        document.getElementById('status').textContent = 'Connected successfully! Monitoring connection health.';
-                    } else if (data.ap_mode) {
-                        // Fell back to AP mode
-                        document.getElementById('status').textContent = 'Connection failed. AP mode restarted.';
+                        document.getElementById('status').textContent = 'Connected successfully! The connection manager is monitoring the connection.';
                     } else {
                         // Connection failed
                         let errorMsg = 'Failed to connect to the network.';
                         if (data.error) {
                             // Safe from XSS: textContent automatically escapes all content
                             errorMsg += ' Error: ' + data.error;
-                        }
-                        if (data.restart_backoff > 0) {
-                            errorMsg += ' (Waiting ' + data.restart_backoff + 's before retry)';
                         }
                         document.getElementById('status').textContent = errorMsg;
                     }
@@ -82,7 +63,6 @@
 <body>
     <div class="container">
         <h1 id="status">{{ status }}</h1>
-        <p id="state-info"></p>
         <a href="/">Go Back</a>
     </div>
 </body>
