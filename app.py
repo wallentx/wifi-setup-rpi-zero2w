@@ -498,15 +498,21 @@ def home():
 
 
 if __name__ == "__main__":
+    manager_thread = None
     try:
         # Start the manager thread
         manager_thread = Thread(target=connection_manager, daemon=False)
         manager_thread.start()
 
         app.run(host="0.0.0.0", port=8080)
+    except Exception:
+        # Log any unexpected exceptions during startup or runtime
+        logger.exception("Unhandled exception in main application loop")
+        raise
     finally:
         # Cleanup on shutdown
         logger.info("Shutting down...")
         manager_stop_event.set()
         manager_wake_event.set()
-        # manager_thread.join() # Optional: wait for it to stop
+        # if manager_thread is not None:
+        #     manager_thread.join()  # Optional: wait for it to stop
