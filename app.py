@@ -314,11 +314,15 @@ def connection_manager():
                 skip_reconnect = connection_state["manual_failure"]
                 if skip_reconnect:
                     connection_state["manual_failure"] = False
-                    logger.info("Manual connection failed. Skipping reconnect window, starting AP immediately.")
+                    logger.info(
+                        "Manual connection failed. Skipping reconnect window, starting AP immediately."
+                    )
 
             if not skip_reconnect:
                 # Trigger a rescan to help NetworkManager find networks
-                subprocess.run(["nmcli", "dev", "wifi", "rescan"], stderr=subprocess.DEVNULL)
+                subprocess.run(
+                    ["nmcli", "dev", "wifi", "rescan"], stderr=subprocess.DEVNULL
+                )
 
                 # Wait for reconnection (RECONNECT_WINDOW)
                 # Check frequently to see if we connected or if user took action
@@ -387,7 +391,9 @@ def connection_manager():
             # then calls stop_ap() (redundant but safe), then enters Reconnect Window.
             logger.info("AP Phase ended. Cycling back to reconnection phase.")
         except Exception:
-            logger.exception("Unexpected error in connection_manager loop. Will retry after 30s.")
+            logger.exception(
+                "Unexpected error in connection_manager loop. Will retry after 30s."
+            )
             time.sleep(30)
 
 
@@ -404,7 +410,9 @@ def manual_connect_task(ssid, password):
         with connection_state_lock:
             connection_state["in_progress"] = False
             connection_state["success"] = False
-            connection_state["error"] = "Another connection attempt is already in progress"
+            connection_state["error"] = (
+                "Another connection attempt is already in progress"
+            )
             connection_state["timestamp"] = time.time()
         return
 
@@ -444,7 +452,9 @@ def manual_connect_task(ssid, password):
             connection_state["manual_failure"] = not success
 
         if not success:
-            logger.info("Manual connection failed. Connection manager will restart AP immediately.")
+            logger.info(
+                "Manual connection failed. Connection manager will restart AP immediately."
+            )
 
     finally:
         connection_attempt_lock.release()
