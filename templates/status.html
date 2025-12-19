@@ -20,7 +20,7 @@
                 document.getElementById('status').textContent = 'Connection status check timed out. Please refresh the page.';
                 return;
             }
-            
+
             fetch('/check_status')
                 .then(response => response.json())
                 .then(data => {
@@ -30,7 +30,7 @@
                         setTimeout(checkStatus, POLL_INTERVAL_MS);
                     } else if (data.connected) {
                         // Successfully connected
-                        document.getElementById('status').textContent = 'Connected successfully!';
+                        document.getElementById('status').textContent = 'Connected successfully! The connection manager is monitoring the connection.';
                     } else {
                         // Connection failed
                         let errorMsg = 'Failed to connect to the network.';
