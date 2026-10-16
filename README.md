@@ -54,74 +54,40 @@ Edit the `.env` file to set your desired values.
 
 ## Running the Application
 
-1. Clone or download the repository to your Raspberry Pi.
+### Manual Execution
 
-2. Navigate to the project folder and run the application:
+To run the application manually (useful for development):
 
-`sudo python3 app.py`
-
-The web portal will be available at http://your-pi-ip:8080.
-*   Note: `sudo` is required for NetworkManager access (creating hotspots, connecting to WiFi).
-
-## Setting up Autostart using systemd
-
-You have two options for setting up autostart: using the included service file (recommended) or creating one manually.
-
-### Option 1: Using the included `wifi_manager.service`
-
-This method assumes you will deploy the application to `/opt/wifi_manager/` and run it as a dedicated user `wifi_manager` for better security.
-
-1.  Create the user and directory:
-    ```bash
-    sudo useradd -r -s /bin/false wifi_manager
-    sudo mkdir /opt/wifi_manager
-    sudo chown wifi_manager:wifi_manager /opt/wifi_manager
-    ```
-2.  Copy project files to `/opt/wifi_manager/`.
-3.  Copy the service file:
-    ```bash
-    sudo cp wifi_manager.service /etc/systemd/system/
-    ```
-4.  Enable and start:
-    ```bash
-    sudo systemctl daemon-reload
-    sudo systemctl enable wifi_manager.service
-    sudo systemctl start wifi_manager.service
-    ```
-
-### Option 2: Manual Setup (Run as `pi`)
-
-If you prefer to run it from your home directory as the `pi` user:
-
-1. Create a new systemd service file:
-`sudo nano /etc/systemd/system/wifi-setup.service`
-
-2. Add the following content:
-
-```ini
-[Unit]
-Description=WiFi Setup Portal
-After=network.target
-
-[Service]
-ExecStart=/usr/bin/python3 /home/pi/path/to/your/project/app.py
-WorkingDirectory=/home/pi/path/to/your/project
-User=pi
-Group=pi
-Restart=always
-# Load environment variables from .env file (optional)
-EnvironmentFile=-/home/pi/path/to/your/project/.env
-
-[Install]
-WantedBy=multi-user.target
-```
-
-3. Enable and start:
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable wifi-setup.service
-sudo systemctl start wifi-setup.service
+# If using uv (recommended)
+sudo uv run app.py
+
+# Or using system python
+sudo python3 app.py
 ```
+
+*   Note: `sudo` is required for manual execution to give the script access to NetworkManager (`nmcli`) and network interfaces.
+
+### Service Deployment (Recommended)
+
+This project includes an installation script that automatically configures a systemd service to run as your current user (`$USER`) from the current directory.
+
+1.  **Generate the service file:**
+    ```bash
+    ./install_service.sh
+    ```
+    This script will inspect your environment and create a `wifi-setup.service` file tailored to your user and path.
+
+2.  **Install and Start:**
+    Follow the instructions output by the script, which will look like this:
+    ```bash
+    sudo cp wifi-setup.service /etc/systemd/system/
+    sudo systemctl daemon-reload
+    sudo systemctl enable wifi-setup.service
+    sudo systemctl start wifi-setup.service
+    ```
+
+The service uses `AmbientCapabilities` (CAP_NET_ADMIN) to perform network operations without running the entire process as root.
 
 ## How It Works
 
